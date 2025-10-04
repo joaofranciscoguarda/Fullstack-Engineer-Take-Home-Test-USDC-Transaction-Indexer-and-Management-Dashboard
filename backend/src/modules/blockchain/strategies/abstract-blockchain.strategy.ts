@@ -122,6 +122,8 @@ export abstract class AbstractBlockchainStrategy
     const providerChangePatterns = [
       /rate limit/i,
       /quota exceeded/i,
+      /query exceeds max results/i, // RPC query limit exceeded
+      /exceeds max results/i, // RPC query limit exceeded (shorter pattern)
       /service unavailable/i,
       /bad gateway/i,
       /gateway timeout/i,
@@ -129,6 +131,23 @@ export abstract class AbstractBlockchainStrategy
       /rpc.*unavailable/i,
       /node.*sync/i,
       /connection.*refused/i,
+      /too many requests/i,
+      /http request failed/i,
+      /network.*error/i,
+      /socket.*hang.*up/i,
+      /fetch failed/i,
+      /econnreset/i,
+      /etimedout/i,
+      /enotfound/i,
+      /econnrefused/i,
+      /timeout/i,
+      /aborted/i,
+      /cancelled/i,
+      /html/i, // HTML responses indicate wrong endpoint
+      /<!doctype/i, // HTML responses
+      /unknown scheme/i, // HTTP scheme issues
+      /invalid.*url/i, // Invalid URL format
+      /transport.*error/i, // Transport layer errors
     ];
 
     const shouldChange = providerChangePatterns.some((pattern) =>
@@ -212,13 +231,13 @@ export abstract class AbstractBlockchainStrategy
           break;
         }
 
-        // If we should change provider, do it
         if (this.shouldChangeProvider(lastError)) {
           try {
             await this.switchProvider();
             this.logger.log(
               `Switched provider due to error, retrying ${operationName}`,
             );
+            continue;
           } catch (switchError) {
             this.logger.error(
               `Failed to switch provider: ${switchError.message}`,
@@ -226,8 +245,8 @@ export abstract class AbstractBlockchainStrategy
           }
         }
 
-        // Wait before retrying
         const delay = this.getRetryDelay(lastError, attempt);
+
         await this.sleep(delay);
       }
     }

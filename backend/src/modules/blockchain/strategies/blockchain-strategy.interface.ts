@@ -1,4 +1,4 @@
-import { Hash, Address, TransactionReceipt, Chain, AbiEvent } from 'viem';
+import { Hash, Address, TransactionReceipt, Chain, AbiEvent, Log } from 'viem';
 import { SupportedChains } from '../types';
 import {
   UnsignedCalldata,
@@ -115,7 +115,7 @@ export interface BlockchainPublicClient extends BlockchainStrategy {
     fromBlock?: bigint;
     toBlock?: bigint;
     eventType?: AbiEvent;
-  }): Promise<any[]>;
+  }): Promise<Log[]>;
 
   /**
    * Get ERC-20 token balance

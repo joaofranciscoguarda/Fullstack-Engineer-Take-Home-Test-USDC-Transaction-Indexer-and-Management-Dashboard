@@ -48,4 +48,57 @@ export class ReorgsRepository extends BaseRepository<Reorg, 'Reorgs'> {
 
     return Reorg.hydrateMany<Reorg>(results);
   }
+
+  /**
+   * Create a reorg record
+   */
+  async createReorg(reorg: Reorg): Promise<Reorg> {
+    return this.create(reorg);
+  }
+
+  /**
+   * Mark reorg as resolved
+   */
+  async markReorgResolved(
+    reorgId: string,
+    transfersAffected: number,
+  ): Promise<Reorg> {
+    const result = await this.prisma.reorgs.update({
+      where: { id: reorgId },
+      data: {
+        status: 'resolved',
+        transfers_affected: transfersAffected,
+        resolved_at: new Date(),
+      },
+    });
+
+    const results = [result];
+    return Reorg.hydrateMany<Reorg>(results)[0];
+  }
+
+  /**
+   * Get recent reorg at a specific block
+   */
+  async getReorgAtBlock(
+    chainId: SupportedChains,
+    blockNumber: bigint,
+  ): Promise<Reorg | null> {
+    const result = await this.prisma.reorgs.findFirst({
+      where: {
+        chain_id: chainId,
+        detected_at_block: blockNumber,
+        detected_at: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24h
+        },
+      },
+      orderBy: {
+        detected_at: 'desc',
+      },
+    });
+
+    if (!result) return null;
+
+    const results = [result];
+    return Reorg.hydrateMany<Reorg>(results)[0];
+  }
 }

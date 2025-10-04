@@ -16,6 +16,6 @@ export class UsersRepository extends BaseRepository<User, 'Users'> {
       },
     });
 
-    return user ? User.hydrateOne<User>(user) : null;
+    return user ? User.hydrate<User>(user) : null;
   }
 }

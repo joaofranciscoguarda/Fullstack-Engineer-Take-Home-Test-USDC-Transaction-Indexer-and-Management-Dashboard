@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue, Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
@@ -10,6 +15,7 @@ export interface BlockRangeJobData {
   fromBlock: bigint;
   toBlock: bigint;
   priority?: number;
+  retryCount?: number;
 }
 
 export interface CatchupJobData {
@@ -18,6 +24,7 @@ export interface CatchupJobData {
   fromBlock: bigint;
   toBlock: bigint;
   chunkSize: bigint;
+  retryCount?: number;
 }
 
 export interface ReorgJobData {
@@ -25,6 +32,7 @@ export interface ReorgJobData {
   reorgId: string;
   affectedFromBlock: bigint;
   affectedToBlock: bigint;
+  retryCount?: number;
 }
 
 export interface WalletNotificationJobData {
@@ -32,11 +40,13 @@ export interface WalletNotificationJobData {
   chainId: SupportedChains;
   transferId: string;
   type: 'send' | 'receive';
+  retryCount?: number;
 }
 
 @Injectable()
-export class QueueService implements OnModuleInit {
+export class QueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(QueueService.name);
+  private metricsInterval?: NodeJS.Timeout;
 
   constructor(
     @InjectQueue('block-ranges') private blockRangesQueue: Queue,
@@ -52,9 +62,16 @@ export class QueueService implements OnModuleInit {
     await this.setupQueueMetrics();
   }
 
+  async onModuleDestroy() {
+    if (this.metricsInterval) {
+      clearInterval(this.metricsInterval);
+      this.logger.log('Queue service metrics interval cleared');
+    }
+  }
+
   private async setupQueueMetrics() {
     // Log queue health periodically
-    setInterval(async () => {
+    this.metricsInterval = setInterval(async () => {
       try {
         const metrics = await this.getQueueMetrics();
         this.logger.debug('Queue metrics:', metrics);
@@ -69,25 +86,41 @@ export class QueueService implements OnModuleInit {
    */
   async addBlockRangeJob(
     data: BlockRangeJobData,
-    options?: { priority?: number; delay?: number },
+    options?: {
+      priority?: number;
+      delay?: number;
+      retryCount?: number;
+      attempts?: number;
+      backoff?: { type: string; delay: number };
+    },
   ): Promise<Job<BlockRangeJobData>> {
-    this.logger.debug(
-      `Adding block range job: ${data.fromBlock} to ${data.toBlock} for chain ${data.chainId}`,
-    );
+    // Reduced logging to avoid spam
+    if (Number(data.fromBlock) % 5000 === 0) {
+      this.logger.log(
+        `Queueing blocks ${data.fromBlock} to ${data.toBlock} for chain ${data.chainId}`,
+      );
+    }
 
-    return this.blockRangesQueue.add(
-      'process-block-range',
+    const job = await this.blockRangesQueue.add(
+      'job',
       {
         ...data,
         fromBlock: data.fromBlock.toString(),
         toBlock: data.toBlock.toString(),
-      } as any,
+        retryCount: options?.retryCount || 0,
+      },
       {
         priority: options?.priority || 10,
         delay: options?.delay,
-        jobId: `block-range-${data.chainId}-${data.fromBlock}-${data.toBlock}`,
+        attempts: options?.attempts || 3,
+        backoff: options?.backoff || {
+          type: 'exponential',
+          delay: 2000,
+        },
+        // Remove jobId to allow BullMQ to generate unique IDs
       },
     );
+    return job;
   }
 
   /**
@@ -99,7 +132,7 @@ export class QueueService implements OnModuleInit {
     );
 
     return this.catchupQueue.add(
-      'process-catchup',
+      'job',
       {
         ...data,
         fromBlock: data.fromBlock.toString(),
@@ -122,7 +155,7 @@ export class QueueService implements OnModuleInit {
     );
 
     return this.reorgHandlerQueue.add(
-      'handle-reorg',
+      'job',
       {
         ...data,
         affectedFromBlock: data.affectedFromBlock.toString(),

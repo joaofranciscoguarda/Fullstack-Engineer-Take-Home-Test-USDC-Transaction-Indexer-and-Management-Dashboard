@@ -13,6 +13,7 @@ import {
   WaitForTransactionReceiptReturnType,
   createPublicClient,
   AbiEvent,
+  Log,
 } from 'viem';
 import { ConfigService } from '@nestjs/config';
 import { SupportedChains } from '../types';
@@ -84,7 +85,7 @@ export class ViemBlockchainStrategy
 
   async switchChain(chainId: SupportedChains): Promise<void> {
     if (this.currentChainId === chainId) {
-      this.logger.debug(`Already on chain ${chainId}`);
+      // Already on the correct chain, no logging needed
       return;
     }
 
@@ -322,14 +323,15 @@ export class ViemBlockchainStrategy
     fromBlock?: bigint;
     toBlock?: bigint;
     eventType?: AbiEvent;
-  }): Promise<any[]> {
+  }): Promise<Log[]> {
     // Build the getLogs parameters
     const getLogsParams: any = {};
-    
+
     if (options.address) getLogsParams.address = options.address;
-    if (options.fromBlock !== undefined) getLogsParams.fromBlock = options.fromBlock;
+    if (options.fromBlock !== undefined)
+      getLogsParams.fromBlock = options.fromBlock;
     if (options.toBlock !== undefined) getLogsParams.toBlock = options.toBlock;
-    
+
     // Handle event type and topics
     if (options.eventType) {
       getLogsParams.event = options.eventType;
@@ -337,11 +339,7 @@ export class ViemBlockchainStrategy
       getLogsParams.topics = options.topics;
     }
 
-    return this.executeWithRetry(
-      () => this.publicClient.getLogs(getLogsParams),
-      3,
-      'getLogs',
-    );
+    return this.publicClient.getLogs(getLogsParams);
   }
 
   async getTokenBalance(
@@ -485,7 +483,9 @@ export class ViemBlockchainStrategy
     if (!chain) {
       throw new Error(`Unsupported chain: ${this.currentChainId}`);
     }
-    const transport = http(this.currentProvider.transport);
+
+    // Create appropriate transport based on URL scheme
+    const transport = this.createTransport(this.currentProvider.transport);
 
     this.publicClient = createPublicClient({
       chain,
@@ -497,6 +497,14 @@ export class ViemBlockchainStrategy
     );
   }
 
+  private createTransport(transportUrl: string) {
+    // if (transportUrl.startsWith('wss://') || transportUrl.startsWith('ws://')) {
+    //   return webSocket(transportUrl);
+    // } else {
+    return http(transportUrl);
+    // }
+  }
+
   /**
    * Create a wallet client for signing transactions
    * This would typically be called when a private key is available
@@ -506,7 +514,7 @@ export class ViemBlockchainStrategy
     if (!chain) {
       throw new Error(`Unsupported chain: ${this.currentChainId}`);
     }
-    const transport = http(this.currentProvider.transport);
+    const transport = this.createTransport(this.currentProvider.transport);
 
     return createWalletClient({
       chain,

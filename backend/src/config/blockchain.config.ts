@@ -46,27 +46,49 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
           {
             name: 'Default Mainnet RPC',
             transport: mainnet.rpcUrls.default.http[0], // Use Viem's default RPC
-            blockRange: 1000n, // Public RPC limit is 1k blocks
+            blockRange: 50n, // Very conservative for USDC-heavy blocks
             timeout: 15000,
             retryAttempts: 3,
           },
           // Additional RPC providers (optional, will be filtered if not configured)
-          ...(process.env['1_0RPX_TRANSPORT']
+          ...(process.env['1_1_TRANSPORT']
             ? [
                 {
-                  name: '0RPX Mainnet',
-                  transport: process.env['1_0RPX_TRANSPORT'],
+                  name: '1 Mainnet',
+                  transport: process.env['1_1_TRANSPORT'],
                   blockRange: 1000n,
                   timeout: 15000,
                   retryAttempts: 3,
                 },
               ]
             : []),
-          ...(process.env['1_PUBLICNODE_TRANSPORT']
+          ...(process.env['1_2_TRANSPORT']
             ? [
                 {
-                  name: 'Public Node Mainnet',
-                  transport: process.env['1_PUBLICNODE_TRANSPORT'],
+                  name: '2 Mainnet',
+                  transport: process.env['1_2_TRANSPORT'],
+                  blockRange: 1000n,
+                  timeout: 15000,
+                  retryAttempts: 3,
+                },
+              ]
+            : []),
+          ...(process.env['1_3_TRANSPORT']
+            ? [
+                {
+                  name: '3 Mainnet',
+                  transport: process.env['1_3_TRANSPORT'],
+                  blockRange: 1000n,
+                  timeout: 15000,
+                  retryAttempts: 3,
+                },
+              ]
+            : []),
+          ...(process.env['1_4_TRANSPORT']
+            ? [
+                {
+                  name: '4 Mainnet',
+                  transport: process.env['1_4_TRANSPORT'],
                   blockRange: 1000n,
                   timeout: 15000,
                   retryAttempts: 3,

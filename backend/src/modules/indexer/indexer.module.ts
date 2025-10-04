@@ -1,7 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
-import { CoordinatorService } from './services/coordinator.service';
+import {
+  CoordinatorService,
+  ReorgDetectionService,
+  ChunkSizeManagerService,
+  ErrorHandlerService,
+} from './services';
 import {
   BlockRangeConsumer,
   CatchupConsumer,
@@ -14,13 +19,19 @@ import { DatabaseModule } from '@/database/database.module';
 @Module({
   imports: [
     ConfigModule,
-    ScheduleModule.forRoot(), // For cron jobs
+    ScheduleModule.forRoot(),
     QueueModule,
     BlockchainModule.forFeature(),
     DatabaseModule,
   ],
   providers: [
+    // Core coordination services
     CoordinatorService,
+    ReorgDetectionService,
+    ChunkSizeManagerService,
+    ErrorHandlerService,
+
+    // Consumers
     BlockRangeConsumer,
     CatchupConsumer,
     ReorgConsumer,

@@ -64,7 +64,7 @@ export class ContractsRepository extends BaseRepository<Contract, 'Contracts'> {
       },
     });
 
-    return result ? Contract.hydrateOne<Contract>(result) : null;
+    return result ? Contract.hydrate<Contract>(result) : null;
   }
 
   /**
@@ -77,7 +77,7 @@ export class ContractsRepository extends BaseRepository<Contract, 'Contracts'> {
       },
     });
 
-    return result ? Contract.hydrateOne<Contract>(result) : null;
+    return result ? Contract.hydrate<Contract>(result) : null;
   }
 
   /**
@@ -105,7 +105,7 @@ export class ContractsRepository extends BaseRepository<Contract, 'Contracts'> {
             chains: [...chains, chainId],
           },
         });
-        return Contract.hydrateOne<Contract>(result);
+        return Contract.hydrate<Contract>(result);
       }
       return existing;
     }
@@ -122,6 +122,6 @@ export class ContractsRepository extends BaseRepository<Contract, 'Contracts'> {
       },
     });
 
-    return Contract.hydrateOne<Contract>(result);
+    return Contract.hydrate<Contract>(result);
   }
 }

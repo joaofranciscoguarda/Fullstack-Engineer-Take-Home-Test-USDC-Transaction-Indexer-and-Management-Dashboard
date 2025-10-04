@@ -11,7 +11,7 @@ import { IndexerState } from '@/common/models';
  * Processes large block ranges by splitting them into smaller chunks
  */
 @Processor('catchup', {
-  concurrency: 3, // Lower concurrency for catch-up jobs
+  concurrency: 1, // Single worker for catch-up to avoid overwhelming RPC
 })
 export class CatchupConsumer extends WorkerHost {
   private readonly logger = new Logger(CatchupConsumer.name);

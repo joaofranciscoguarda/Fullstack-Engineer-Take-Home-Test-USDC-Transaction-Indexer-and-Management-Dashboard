@@ -8,6 +8,7 @@ import {
   IndexerStateRepository,
   ReorgsRepository,
 } from './prisma/repositories';
+import { WalletSubscriptionRepository } from '@/database/prisma/repositories/wallet-subscription.repository';
 
 const repositories = [
   UsersRepository,
@@ -15,6 +16,7 @@ const repositories = [
   ContractsRepository,
   IndexerStateRepository,
   ReorgsRepository,
+  WalletSubscriptionRepository,
 ];
 
 @Global()

@@ -29,7 +29,7 @@ export class IndexerStateRepository extends BaseRepository<
       },
     });
 
-    return result ? IndexerState.hydrateOne<IndexerState>(result) : null;
+    return result ? IndexerState.hydrate<IndexerState>(result) : null;
   }
 
   /**
@@ -61,7 +61,7 @@ export class IndexerStateRepository extends BaseRepository<
       update: {},
     });
 
-    return IndexerState.hydrateOne<IndexerState>(result);
+    return IndexerState.hydrate<IndexerState>(result);
   }
 
   /**
@@ -96,7 +96,7 @@ export class IndexerStateRepository extends BaseRepository<
       },
     });
 
-    return IndexerState.hydrateOne<IndexerState>(result);
+    return IndexerState.hydrate<IndexerState>(result);
   }
 
   /**
@@ -126,7 +126,7 @@ export class IndexerStateRepository extends BaseRepository<
       },
     });
 
-    return IndexerState.hydrateOne<IndexerState>(result);
+    return IndexerState.hydrate<IndexerState>(result);
   }
 
   /**
@@ -245,6 +245,6 @@ export class IndexerStateRepository extends BaseRepository<
         },
       },
     });
-    return IndexerState.hydrateOne<IndexerState>(result);
+    return IndexerState.hydrate<IndexerState>(result);
   }
 }

@@ -14,7 +14,7 @@ export class TransfersRepository extends BaseRepository<Transfer, 'Transfers'> {
 
   /**
    * Bulk upsert transfers (batch operation for better performance)
-   * Uses base repository's manyUpsert for model-based upserts
+   * Uses custom upsert logic with unique_transfer constraint
    */
   async bulkUpsert(transfers: Transfer[]): Promise<Transfer[]> {
     // Execute in batches to avoid overwhelming the database
@@ -23,7 +23,7 @@ export class TransfersRepository extends BaseRepository<Transfer, 'Transfers'> {
 
     for (let i = 0; i < transfers.length; i += batchSize) {
       const batch = transfers.slice(i, i + batchSize);
-      const batchResults = await this.manyUpsert(batch);
+      const batchResults = await this.upsertMany(batch);
       results.push(...batchResults);
     }
 
@@ -31,43 +31,15 @@ export class TransfersRepository extends BaseRepository<Transfer, 'Transfers'> {
   }
 
   /**
-   * Upsert transfers from raw blockchain data (optimized for consumer workers)
-   * This is a specialized method for the BlockRangeConsumer
-   * Uses unique constraint (tx_hash, log_index, chain_id) for idempotency
+   * Upsert transfers using the unique_transfer constraint (tx_hash, log_index, chain_id)
    */
-  async upsertFromRawData(
-    transfers: Prisma.TransfersCreateInput[],
-  ): Promise<void> {
-    const batchSize = 100;
+  private async upsertMany(transfers: Transfer[]): Promise<Transfer[]> {
+    const upsertPromises = transfers.map((transfer) => {
+      return this.upsert(transfer);
+    });
 
-    for (let i = 0; i < transfers.length; i += batchSize) {
-      const batch = transfers.slice(i, i + batchSize);
-
-      // Direct Prisma operations for raw data (more efficient than model conversion)
-      const operations = batch.map((transfer) =>
-        this.prisma.transfers.upsert({
-          where: {
-            unique_transfer: {
-              tx_hash: transfer.tx_hash,
-              log_index: transfer.log_index,
-              chain_id: transfer.chain_id,
-            },
-          },
-          create: transfer,
-          update: {
-            // Update only if there are changes in important fields
-            amount: transfer.amount,
-            timestamp: transfer.timestamp,
-            block_hash: transfer.block_hash,
-            status: transfer.status,
-            confirmations: transfer.confirmations,
-            is_confirmed: transfer.is_confirmed,
-          },
-        }),
-      );
-
-      await this.prisma.$transaction(operations);
-    }
+    const prismaResponse = await Promise.all(upsertPromises);
+    return Transfer.hydrateMany<Transfer>(prismaResponse);
   }
 
   /**
@@ -232,5 +204,26 @@ export class TransfersRepository extends BaseRepository<Transfer, 'Transfers'> {
     toBlock: bigint,
   ): Promise<number> {
     return this.deleteByBlockRange(chainId, fromBlock, toBlock);
+  }
+
+  /**
+   * Get stored block hash for a specific block
+   * Used for reorg detection
+   */
+  async getStoredBlockHash(
+    chainId: SupportedChains,
+    blockNumber: bigint,
+  ): Promise<string | null> {
+    const transfer = await this.prisma.transfers.findFirst({
+      where: {
+        chain_id: chainId,
+        block_number: blockNumber,
+      },
+      select: {
+        block_hash: true,
+      },
+    });
+
+    return transfer?.block_hash || null;
   }
 }

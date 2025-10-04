@@ -19,7 +19,7 @@ import { Prisma } from '@prisma/client';
 // Interface for model classes with static methods
 interface ModelClassWithStatics<T> {
   new (data: any): T;
-  hydrateOne<T>(data: any): T;
+  hydrate<T>(data: any): T;
   hydrateMany<T>(data: any[]): T[];
   primaryKeyName(): string;
 }
@@ -42,12 +42,30 @@ export abstract class BaseRepository<
   }
 
   /**
-   * Helper method to build where clause with primary key
+   * Helper method to build where clause with primary key or unique constraint
+   * Falls back to unique constraint if primary key is not available
    */
   private buildPrimaryKeyWhere(model: ConcreteModel): Record<string, any> {
     const primaryKeyName = (model.constructor as any).primaryKeyName();
+    const primaryKeyValue = model.getPrimaryKey();
+
+    // If primary key is available and not undefined/null, use it
+    if (primaryKeyValue !== undefined && primaryKeyValue !== null) {
+      return {
+        [primaryKeyName]: primaryKeyValue,
+      };
+    }
+
+    // Otherwise, try to use unique constraint fields
+    const uniqueConstraintValues = model.getUniqueConstraintValues();
+    if (uniqueConstraintValues) {
+      return uniqueConstraintValues;
+    }
+
+    // If no unique constraint is available, still return the primary key
+    // (this will let Prisma handle the error if needed)
     return {
-      [primaryKeyName]: model.getPrimaryKey(),
+      [primaryKeyName]: primaryKeyValue,
     };
   }
 
@@ -74,7 +92,7 @@ export abstract class BaseRepository<
     // @ts-ignore
     const model = await this.getPrismaService().create(arg);
 
-    return this.modelClass.hydrateOne<ConcreteModel>(model);
+    return this.modelClass.hydrate<ConcreteModel>(model);
   }
 
   async list(
@@ -137,7 +155,7 @@ export abstract class BaseRepository<
     // Here it makes some selects within a transaction
     // @ts-ignore
     const prismaResponse = await this.getPrismaService().update(args2);
-    return this.modelClass.hydrateOne<ConcreteModel>(prismaResponse);
+    return this.modelClass.hydrate<ConcreteModel>(prismaResponse);
   }
 
   async upsert(
@@ -159,7 +177,7 @@ export abstract class BaseRepository<
 
     // @ts-ignore
     const prismaResponse = await this.getPrismaService().upsert(args2);
-    return this.modelClass.hydrateOne<ConcreteModel>(prismaResponse);
+    return this.modelClass.hydrate<ConcreteModel>(prismaResponse);
   }
 
   async manyUpsert(
@@ -227,7 +245,7 @@ export abstract class BaseRepository<
   ): Promise<ConcreteModel> {
     // @ts-ignore
     const prismaResponse = await this.getPrismaService().findUnique(args);
-    return this.modelClass.hydrateOne<ConcreteModel>(prismaResponse);
+    return this.modelClass.hydrate<ConcreteModel>(prismaResponse);
   }
 
   async findFirst(
@@ -238,7 +256,7 @@ export abstract class BaseRepository<
   ): Promise<ConcreteModel> {
     // @ts-ignore
     const prismaResponse = await this.getPrismaService().findFirst(args);
-    return this.modelClass.hydrateOne<ConcreteModel>(prismaResponse);
+    return this.modelClass.hydrate<ConcreteModel>(prismaResponse);
   }
 
   async retrieve(primaryKeyValue: number | string): Promise<ConcreteModel> {
@@ -259,7 +277,7 @@ export abstract class BaseRepository<
       );
     }
 
-    const hydratedModel = this.modelClass.hydrateOne<ConcreteModel>(model);
+    const hydratedModel = this.modelClass.hydrate<ConcreteModel>(model);
 
     return hydratedModel;
   }

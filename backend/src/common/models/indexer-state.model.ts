@@ -48,6 +48,14 @@ export class IndexerState
   static defaultResponseClass() {
     return IndexerStateResponse;
   }
+
+  static getUniqueConstraintFields() {
+    return ['chain_id', 'contract_address'] as const;
+  }
+
+  static getUniqueConstraintName() {
+    return 'unique_indexer_state';
+  }
 }
 
 // Keep track of whats in the database

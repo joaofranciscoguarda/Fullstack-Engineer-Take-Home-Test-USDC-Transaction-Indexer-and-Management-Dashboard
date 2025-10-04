@@ -372,13 +372,13 @@ export abstract class BaseModel<
    * @param dataArray Array of objects to be hydrated.
    * @returns {T|T[]} Array of instances of the class.
    */
-  static hydrate<T>(
-    dataArray: Partial<FromDatabase<T>> | Partial<FromDatabase<T>>[],
-  ): T | T[] {
-    return Array.isArray(dataArray)
-      ? this.hydrateMany<T>(dataArray)
-      : this.hydrateOne<T>(dataArray);
-  }
+  // static hydrate<T>(
+  //   dataArray: Partial<FromDatabase<T>> | Partial<FromDatabase<T>>[],
+  // ): T | T[] {
+  //   return Array.isArray(dataArray)
+  //     ? this.hydrateMany<T>(dataArray)
+  //     : this.hydrateOne<T>(dataArray);
+  // }
 
   /**
    * Hydrate an array of objects into an array of instances of the class.
@@ -387,7 +387,7 @@ export abstract class BaseModel<
    * @returns {T[]} Array of instances of the class.
    */
   static hydrateMany<T>(dataArray: Partial<FromDatabase<T>>[]): T[] {
-    return dataArray.map((data) => this.hydrateOne(data));
+    return dataArray.map((data) => this.hydrate(data));
   }
 
   /**
@@ -396,7 +396,7 @@ export abstract class BaseModel<
    * @param data Object to be hydrated.
    * @returns {T} Instance of the class.
    */
-  static hydrateOne<T>(data: Partial<FromDatabase<T>>): T {
+  static hydrate<T>(data: Partial<FromDatabase<T>>): T {
     this.toHydrateDate(data);
     this.toHydrateArrays(data, this);
     // BigInt handled natively by Prisma, no need to deserialize
@@ -547,6 +547,91 @@ export abstract class BaseModel<
    */
   static getArrayFields(): string[] {
     return [];
+  }
+
+  /**
+   * Define the unique constraint fields for this model.
+   * Override this method in child classes to specify unique constraint fields.
+   * Used by repository methods (upsert, update) when primary key is not available.
+   *
+   * @example
+   * ```typescript
+   * export class Transfer extends BaseModel<Transfer, ITransfer, 'Transfers', 'string'> {
+   *   static getUniqueConstraintFields() {
+   *     return ['tx_hash', 'log_index', 'chain_id'] as const;
+   *   }
+   * }
+   * ```
+   *
+   * @returns {readonly string[]} Array of field names that form the unique constraint
+   */
+  static getUniqueConstraintFields(): readonly string[] {
+    return [];
+  }
+
+  /**
+   * Define the unique constraint name for this model.
+   * Override this method in child classes to specify the Prisma constraint name.
+   * If not provided, will auto-generate based on field names (e.g., "unique_field1_field2").
+   *
+   * @example
+   * ```typescript
+   * export class Transfer extends BaseModel<Transfer, ITransfer, 'Transfers', 'string'> {
+   *   static getUniqueConstraintName() {
+   *     return 'unique_transfer'; // Matches the name in Prisma schema
+   *   }
+   * }
+   * ```
+   *
+   * @returns {string | null} The unique constraint name or null if no constraint
+   */
+  static getUniqueConstraintName(): string | null {
+    const fields = this.getUniqueConstraintFields();
+    if (fields.length === 0) {
+      return null;
+    }
+    // Auto-generate name: unique_field1_field2_field3
+    return `${fields.join('_')}`;
+  }
+
+  /**
+   * Get the unique constraint values from this instance.
+   * Returns an object properly formatted for Prisma's where clause.
+   *
+   * For models with named unique constraints in Prisma schema:
+   * ```
+   * { unique_transfer: { tx_hash: "...", log_index: 35, chain_id: 1 } }
+   * ```
+   *
+   * @returns {Record<string, any> | null} Object with unique constraint for Prisma where clause or null if not available
+   */
+  getUniqueConstraintValues(): Record<string, any> | null {
+    const fields = (
+      this.constructor as typeof BaseModel
+    ).getUniqueConstraintFields();
+    const constraintName = (
+      this.constructor as typeof BaseModel
+    ).getUniqueConstraintName();
+
+    if (fields.length === 0 || !constraintName) {
+      return null;
+    }
+
+    const values: Record<string, any> = {};
+
+    for (const field of fields) {
+      const value = this[field];
+      if (value === undefined || value === null) {
+        // If any field is missing, we can't use the unique constraint
+        return null;
+      }
+      values[field] = value;
+    }
+
+    // Return in Prisma's expected format: { constraintName: { field1: value1, ... } }
+    return {
+      [constraintName]: values,
+    };
   }
 
   // Repository methods

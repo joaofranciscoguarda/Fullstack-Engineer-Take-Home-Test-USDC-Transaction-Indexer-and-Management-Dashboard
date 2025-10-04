@@ -52,7 +52,6 @@ export class IndexerManagementController {
    */
   @Post('start')
   async startIndexer(@Body() dto: StartIndexerDto) {
-    this.logger.log('POST /api/indexer/start', dto);
     return this.indexerManagementService.startIndexer(dto);
   }
 
@@ -62,7 +61,6 @@ export class IndexerManagementController {
    */
   @Post('stop')
   async stopIndexer(@Body() dto: StopIndexerDto) {
-    this.logger.log('POST /api/indexer/stop', dto);
     return this.indexerManagementService.stopIndexer(
       dto.chainId,
       dto.contractAddress,

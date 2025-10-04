@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Hash, Address, TransactionReceipt, Chain, AbiEvent } from 'viem';
+import { Hash, Address, TransactionReceipt, Chain, AbiEvent, Log } from 'viem';
 import { SupportedChains, BlockchainProvider } from './types';
 import {
   UnsignedCalldata,
@@ -194,7 +194,7 @@ export class BlockchainService
     fromBlock?: bigint;
     toBlock?: bigint;
     eventType?: AbiEvent;
-  }): Promise<any[]> {
+  }): Promise<Log[]> {
     return this.publicClient.getLogs(options);
   }
 
@@ -347,6 +347,17 @@ export class BlockchainService
         chainId: -1 as SupportedChains,
         blockNumber: BigInt(-1),
       };
+    }
+  }
+
+  /**
+   * Manually switch to the next provider (called when errors are detected externally)
+   */
+  async switchToNextProvider(): Promise<void> {
+    if (typeof this.publicClient['switchProvider'] === 'function') {
+      await this.publicClient['switchProvider']();
+    } else {
+      this.logger.warn('Current strategy does not support provider switching');
     }
   }
 }

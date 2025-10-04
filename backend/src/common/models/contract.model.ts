@@ -30,6 +30,14 @@ export class Contract
   static getArrayFields(): string[] {
     return ['chains'];
   }
+
+  static getUniqueConstraintFields() {
+    return ['address', 'chains'] as const;
+  }
+
+  static getUniqueConstraintName() {
+    return 'unique_contract_address_chains';
+  }
 }
 
 // Keep track of whats in the database

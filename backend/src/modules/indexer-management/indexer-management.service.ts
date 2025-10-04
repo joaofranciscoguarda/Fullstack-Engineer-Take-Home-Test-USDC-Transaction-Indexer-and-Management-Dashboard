@@ -200,30 +200,32 @@ export class IndexerManagementService {
   }
 
   /**
-   * Trigger catch-up
+   * Trigger catch-up (deprecated - dynamic catch-up is always active)
    */
   async triggerCatchUp(dto: CatchUpIndexerDto) {
-    const { chainId, contractAddress, fromBlock, toBlock } = dto;
+    const { chainId, contractAddress } = dto;
 
-    // Validate blocks
-    if (BigInt(fromBlock) >= BigInt(toBlock)) {
-      throw new BadRequestException('fromBlock must be less than toBlock');
-    }
-
-    await this.coordinatorService.triggerCatchUp(
+    const state = await this.indexerStateRepo.getState(
       chainId,
       contractAddress,
-      BigInt(fromBlock),
-      BigInt(toBlock),
     );
 
+    if (!state) {
+      throw new NotFoundException(
+        `Indexer not found for chain ${chainId} and contract ${contractAddress}`,
+      );
+    }
+
     return {
-      message: 'Catch-up indexing triggered',
-      chainId,
-      contractAddress,
-      fromBlock: fromBlock.toString(),
-      toBlock: toBlock.toString(),
-      blocksToProcess: (BigInt(toBlock) - BigInt(fromBlock)).toString(),
+      message:
+        'Indexer already has a dynamic catch-up mechanism. When the indexer detects a lag > 50 blocks, it automatically enters catch-up mode with adaptive chunk sizing.',
+      info: 'No manual intervention needed - catch-up happens automatically',
+      currentStatus: {
+        isCatchingUp: state.is_catching_up,
+        lag: (state.current_block - state.last_processed_block).toString(),
+        lastProcessedBlock: state.last_processed_block.toString(),
+        currentBlock: state.current_block.toString(),
+      },
     };
   }
 
