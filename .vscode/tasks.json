@@ -1,0 +1,70 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "docker up",
+			"type": "shell",
+			"command": "./scripts/docker-up.sh"
+		},
+		{
+			"label": "docker down",
+			"type": "shell",
+			"command": "docker compose down && docker volume prune --force"
+		},
+		{
+			"label": "update package.json",
+			"type": "shell",
+			"command": "docker compose up -d -V --build backend"
+		},
+		{
+			"label": "docker stop",
+			"type": "shell",
+			"command": "docker compose stop"
+		},
+		{
+			"label": "migrate dev",
+			"type": "shell",
+			"command": "docker compose exec backend pnpm migrate:dev"
+		},
+		{
+			"label": "migrate:reset",
+			"type": "shell",
+			"command": "docker compose exec backend pnpm migrate:reset"
+		},
+		{
+			"label": "migrate:reset-and-seed",
+			"type": "shell",
+			"command": "docker compose exec backend pnpm migrate:reset-and-seed"
+		},
+		{
+			"label": "seed",
+			"type": "shell",
+			"command": "docker compose exec backend pnpm seed"
+		},
+		{
+			"label": "seed:production",
+			"type": "shell",
+			"command": "docker compose exec backend pnpm seed:production"
+		},
+		{
+			"label": "backend shell 1",
+			"type": "shell",
+			"command": "docker compose exec -it backend /bin/ash"
+		},
+		{
+			"label": "backend shell 2",
+			"type": "shell",
+			"command": "docker compose exec -it backend /bin/ash"
+		},
+		{
+			"label": "backend shell 3",
+			"type": "shell",
+			"command": "docker compose exec -it backend /bin/ash"
+		},
+		{
+			"label": "backend logs",
+			"type": "shell",
+			"command": "docker compose logs -n 100 -f backend"
+		}
+	]
+}
