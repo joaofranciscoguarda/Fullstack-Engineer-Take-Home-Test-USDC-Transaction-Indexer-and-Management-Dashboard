@@ -1,0 +1,19 @@
+meta {
+  name: status indexer
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/api/indexer/start
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{api_key}}
+}
+
+settings {
+  encodeUrl: true
+}

@@ -1,0 +1,210 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Users {
+  id      String @id @default(uuid(7)) @db.Uuid
+  api_key String @unique @db.VarChar(255)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("users")
+}
+
+// Contracts being indexed (USDC, etc.)
+model Contracts {
+  id      String @id @default(uuid(7)) @db.Uuid
+  name    String @db.VarChar(100)
+  symbol  String @db.VarChar(20)
+  address String @db.VarChar(42) // Ethereum address
+
+  chains Int[]
+
+  decimals Int     @default(82)
+  active   Boolean @default(true)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relationships
+  transfers Transfers[]
+
+  @@unique([address, chains], name: "unique_contract_address_chains")
+  @@index([address])
+  @@index([active])
+  @@map("contracts")
+}
+
+// Transfer events indexed from blockchain
+model Transfers {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // Transaction identifiers
+  tx_hash      String   @db.VarChar(66) // 0x + 64 hex chars
+  log_index    Int
+  block_number BigInt
+  block_hash   String   @db.VarChar(66)
+  timestamp    DateTime
+
+  // Transfer details
+  from_address String @db.VarChar(42)
+  to_address   String @db.VarChar(42)
+  amount       BigInt
+
+  // Contract reference
+  contract_id      String    @db.Uuid
+  contract_address String    @db.VarChar(42)
+  contract         Contracts @relation(fields: [contract_id], references: [id], onDelete: Cascade)
+
+  // Chain information
+  chain_id Int
+
+  // Metadata
+  gas_price     BigInt?
+  gas_used      BigInt?
+  status        Int     @default(1) // 1 = success, 0 = failed
+  is_confirmed  Boolean @default(false) // Confirmed after N confirmations
+  confirmations Int     @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Unique constraint on tx_hash + log_index (upsert key for idempotency)
+  @@unique([tx_hash, log_index, chain_id], name: "unique_transfer")
+  @@index([block_number])
+  @@index([from_address])
+  @@index([to_address])
+  @@index([contract_address])
+  @@index([timestamp])
+  @@index([chain_id])
+  @@index([is_confirmed])
+  // Composite indexes for common queries
+  @@index([from_address, timestamp])
+  @@index([to_address, timestamp])
+  @@index([contract_address, block_number])
+  @@map("transfers")
+}
+
+// Indexer state management
+model IndexerState {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // Indexer identification
+  chain_id         Int
+  contract_address String @db.VarChar(42)
+
+  // Block tracking
+  last_processed_block BigInt
+  current_block        BigInt
+  start_block          BigInt
+
+  // Status
+  status         String  @default("stopped") @db.VarChar(20) // stopped, running, paused, error
+  is_catching_up Boolean @default(false)
+
+  // Error handling
+  error_count   Int       @default(0)
+  last_error    String?   @db.Text
+  last_error_at DateTime?
+
+  // Performance metrics
+  blocks_per_second Float?    @default(0)
+  transfers_indexed BigInt    @default(0)
+  last_indexed_at   DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([chain_id, contract_address], name: "unique_indexer_state")
+  @@index([status])
+  @@index([chain_id])
+  @@map("indexer_state")
+}
+
+// Blockchain reorganization tracking
+model Reorgs {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  chain_id          Int
+  detected_at_block BigInt
+  reorg_depth       Int // How many blocks were reverted
+  old_block_hash    String @db.VarChar(66)
+  new_block_hash    String @db.VarChar(66)
+
+  // Reorg handling
+  status             String @default("detected") @db.VarChar(20) // detected, processing, resolved
+  transfers_affected Int    @default(0)
+
+  detected_at DateTime  @default(now())
+  resolved_at DateTime?
+
+  @@index([chain_id])
+  @@index([detected_at_block])
+  @@index([status])
+  @@map("reorgs")
+}
+
+// Job metadata for tracking queue processing
+model JobMetadata {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  job_id   String @unique @db.VarChar(255)
+  job_type String @db.VarChar(50) // blockRange, catchup, reorg, notification
+  chain_id Int
+
+  // Block range for this job
+  from_block BigInt
+  to_block   BigInt
+
+  // Status tracking
+  status     String  @default("pending") @db.VarChar(20) // pending, processing, completed, failed
+  attempts   Int     @default(0)
+  last_error String? @db.Text
+
+  // Performance
+  started_at   DateTime?
+  completed_at DateTime?
+  duration_ms  Int?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([job_type])
+  @@index([status])
+  @@index([chain_id])
+  @@index([from_block, to_block])
+  @@map("job_metadata")
+}
+
+// Wallet subscriptions for real-time notifications (future feature)
+model WalletSubscriptions {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  wallet_address String  @db.VarChar(42)
+  chain_id       Int
+  active         Boolean @default(true)
+
+  // Notification preferences
+  notify_on_receive Boolean @default(true)
+  notify_on_send    Boolean @default(true)
+
+  // Optional filters
+  min_amount BigInt?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([wallet_address, chain_id], name: "unique_subscription")
+  @@index([wallet_address])
+  @@index([active])
+  @@map("wallet_subscriptions")
+}

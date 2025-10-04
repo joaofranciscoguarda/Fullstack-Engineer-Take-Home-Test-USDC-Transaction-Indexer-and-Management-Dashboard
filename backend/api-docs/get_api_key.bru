@@ -1,0 +1,19 @@
+meta {
+  name: get_api_key
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/users/generate-key
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  bru.setVar("api_key",res.body.data.api_key)
+}
+
+settings {
+  encodeUrl: true
+}
