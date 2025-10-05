@@ -4,7 +4,7 @@
 		{
 			"label": "docker up",
 			"type": "shell",
-			"command": "./scripts/docker-up.sh"
+			"command": "docker compose up -V --remove-orphans"
 		},
 		{
 			"label": "docker down",
@@ -34,7 +34,7 @@
 		{
 			"label": "migrate:reset-and-seed",
 			"type": "shell",
-			"command": "docker compose exec backend pnpm migrate:reset-and-seed"
+			"command": "docker compose exec -T backend pnpm migrate:reset-and-seed"
 		},
 		{
 			"label": "prisma generate",

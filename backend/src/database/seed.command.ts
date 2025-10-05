@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../app.module';
 import { SeedService } from './seed.service';
+import { DatabaseModule } from '@/database/database.module';
 
 async function runSeed() {
-  const app = await NestFactory.createApplicationContext(AppModule);
+  const app = await NestFactory.createApplicationContext(DatabaseModule);
   const seedService = app.get(SeedService);
 
   try {
