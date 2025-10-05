@@ -1,0 +1,373 @@
+{
+  "info": {
+    "name": "api-docs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "catch-up indexer",
+      "event": [],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": {
+            "key": "token",
+            "value": "{{api_key}}",
+            "type": "string"
+          }
+        },
+        "description": "",
+        "url": {
+          "raw": "{{base_url}}/api/indexer/catch-up",
+          "protocol": "",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "indexer",
+            "catch-up"
+          ],
+          "query": [],
+          "variable": []
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"chainId\": 1,\n  \"contractAddress\": \"0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48\",\n  \"fromBlock\": 23496000,\n  \"toBlock\": 23498000\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "get_api_key",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "",
+        "url": {
+          "raw": "{{base_url}}/api/users/generate-key",
+          "protocol": "",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "users",
+            "generate-key"
+          ],
+          "query": [],
+          "variable": []
+        }
+      }
+    },
+    {
+      "name": "run indexer",
+      "event": [],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": {
+            "key": "token",
+            "value": "{{api_key}}",
+            "type": "string"
+          }
+        },
+        "description": "",
+        "url": {
+          "raw": "{{base_url}}/api/indexer/start",
+          "protocol": "",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "indexer",
+            "start"
+          ],
+          "query": [],
+          "variable": []
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"chainId\": 1,\n  \"contractAddress\": \"0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "status indexer",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": {
+            "key": "token",
+            "value": "{{api_key}}",
+            "type": "string"
+          }
+        },
+        "description": "",
+        "url": {
+          "raw": "{{base_url}}/api/indexer/status",
+          "protocol": "",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "indexer",
+            "status"
+          ],
+          "query": [],
+          "variable": []
+        }
+      }
+    },
+    {
+      "name": "stop indexer",
+      "event": [],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": {
+            "key": "token",
+            "value": "{{api_key}}",
+            "type": "string"
+          }
+        },
+        "description": "",
+        "url": {
+          "raw": "{{base_url}}/api/indexer/stop",
+          "protocol": "",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "indexer",
+            "stop"
+          ],
+          "query": [],
+          "variable": []
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"chainId\": 1,\n  \"contractAddress\": \"0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "rerogs indexer",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": {
+            "key": "token",
+            "value": "{{api_key}}",
+            "type": "string"
+          }
+        },
+        "description": "",
+        "url": {
+          "raw": "{{base_url}}/api/indexer/reorgs",
+          "protocol": "",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "indexer",
+            "reorgs"
+          ],
+          "query": [],
+          "variable": []
+        }
+      }
+    },
+    {
+      "name": "queue-metrics indexer",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": {
+            "key": "token",
+            "value": "{{api_key}}",
+            "type": "string"
+          }
+        },
+        "description": "",
+        "url": {
+          "raw": "{{base_url}}/api/indexer/queue-metrics",
+          "protocol": "",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "indexer",
+            "queue-metrics"
+          ],
+          "query": [],
+          "variable": []
+        }
+      }
+    },
+    {
+      "name": "get transfer by tx_hash",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "",
+        "url": {
+          "raw": "{{base_url}}/api/transfers/0x971d64792889ef7a61e1368aba7de9ca8dd7df766d49121c03b1e6eb5b4b8268",
+          "protocol": "",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "transfers",
+            "0x971d64792889ef7a61e1368aba7de9ca8dd7df766d49121c03b1e6eb5b4b8268"
+          ],
+          "query": [],
+          "variable": []
+        }
+      }
+    },
+    {
+      "name": "get transfer of address",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "",
+        "url": {
+          "raw": "{{base_url}}/api/transfers/address/0xefF95a85a8508c9f45e7D1A710F49fb454B6A0FD",
+          "protocol": "",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "transfers",
+            "address",
+            "0xefF95a85a8508c9f45e7D1A710F49fb454B6A0FD"
+          ],
+          "query": [],
+          "variable": []
+        }
+      }
+    },
+    {
+      "name": "get balance of address",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": {
+            "key": "token",
+            "value": "{{api_key}}",
+            "type": "string"
+          }
+        },
+        "description": "",
+        "url": {
+          "raw": "{{base_url}}/api/balance/0x3a14ab3a2d3f62fe2c111bfae8cc71e8d0bca6a9",
+          "protocol": "",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "balance",
+            "0x3a14ab3a2d3f62fe2c111bfae8cc71e8d0bca6a9"
+          ],
+          "query": [],
+          "variable": []
+        }
+      }
+    },
+    {
+      "name": "get transfers",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": {
+            "key": "token",
+            "value": "{{api_key}}",
+            "type": "string"
+          }
+        },
+        "description": "",
+        "url": {
+          "raw": "{{base_url}}/api/transfers",
+          "protocol": "",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "transfers"
+          ],
+          "query": [],
+          "variable": []
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "api_key",
+      "value": "",
+      "type": "default"
+    }
+  ]
+}

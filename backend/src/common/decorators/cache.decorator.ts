@@ -23,4 +23,3 @@ export function Cacheable(ttlSeconds: number = 300, keyPrefix?: string) {
     return descriptor;
   };
 }
-

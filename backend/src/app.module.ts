@@ -18,6 +18,7 @@ import blockchainConfig from '@/config/blockchain.config';
 import queueConfig from '@/config/queue.config';
 import workerConfig from '@/config/worker.config';
 import staticConfig from '@/config/static.config';
+import { AppController } from '@/app.controller';
 
 @Module({
   imports: [
@@ -37,7 +38,7 @@ import staticConfig from '@/config/static.config';
     UsersModule,
     CacheModule,
   ],
-  controllers: [],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,

@@ -4,7 +4,7 @@ import { AppModule } from './app.module';
 // This will prevent any crashes when doing a bigint .toString() calls, on JSON.stringify for example
 import '@/common/helpers/bigInt/globalBigIntStringSerializer';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from '@nestjs/common';
 
@@ -51,7 +51,7 @@ async function bootstrap() {
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, document);
+    SwaggerModule.setup('api/docs', app, document);
   }
 
   // Enable graceful shutdown hooks

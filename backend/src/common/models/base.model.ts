@@ -7,7 +7,6 @@ import {
 } from '../types/utils.models';
 import { BaseRepository } from '@/database/prisma/repositories/base.repository';
 import { ModelName, OmitData, TypeMapConcreteModelOperations } from '../types';
-import { serialize, deserialize, BigIntPrefix } from '../helpers/bigInt';
 import { ModelResponse } from '@/common/response/model.response';
 import _ from 'lodash';
 
@@ -344,7 +343,7 @@ export abstract class BaseModel<
       if (obj.hasOwnProperty(key)) {
         const value = obj[key];
         if (typeof value === 'bigint') {
-          obj[key] = serialize(value);
+          obj[key] = value.toString();
         }
       }
     }
@@ -419,19 +418,19 @@ export abstract class BaseModel<
    * Auto-detects and deserializes BigInt fields from database.
    * Looks for strings starting with BigIntPrefix (#bi.)
    */
-  static toHydrateBigInt(obj) {
-    // Auto-detect and deserialize BigInt values
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        const value = obj[key];
-        if (typeof value === 'string' && value.startsWith(BigIntPrefix)) {
-          obj[key] = deserialize(value);
-        }
-      }
-    }
+  // static toHydrateBigInt(obj) {
+  //   // Auto-detect and deserialize BigInt values
+  //   for (const key in obj) {
+  //     if (obj.hasOwnProperty(key)) {
+  //       const value = obj[key];
+  //       if (typeof value === 'string' && value.startsWith(BigIntPrefix)) {
+  //         obj[key] = value.slice(BigIntPrefix.length);
+  //       }
+  //     }
+  //   }
 
-    return obj;
-  }
+  //   return obj;
+  // }
 
   /**
    * Auto-detects and converts date strings to Date objects.
