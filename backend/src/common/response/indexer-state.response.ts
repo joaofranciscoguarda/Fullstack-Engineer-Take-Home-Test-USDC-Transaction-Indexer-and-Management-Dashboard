@@ -19,6 +19,9 @@ export class IndexerStateResponseClass {
   @ApiProperty({ example: '12345678', description: 'Last processed block' })
   last_processed_block: string;
 
+  @ApiProperty({ example: '12345900', description: 'Highest processed block (for debugging)' })
+  highest_processed_block: string;
+
   @ApiProperty({ example: '12345900', description: 'Current blockchain block' })
   current_block: string;
 

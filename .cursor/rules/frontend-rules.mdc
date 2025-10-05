@@ -1,0 +1,36 @@
+---
+globs: frontend/**/*.ts,frontend/**/*.tsx
+alwaysApply: false
+---
+
+Context:
+
+Next.js 14 with TypeScript.
+
+Management dashboard for monitoring and controlling the indexer.
+
+Real-time updates (WebSocket/SSE).
+
+Data visualization (Recharts or Chart.js).
+
+Rules:
+
+Pages must match required structure:
+
+Dashboard Overview (status, KPIs, charts, transfers table, alerts).
+
+Indexer Management (start/stop/reset, reorgs, settings).
+
+Transfer Explorer (search, address history, tx details, exports).
+
+Analytics & Reporting (volume, top addresses, network trends).
+
+Use API hooks for backend communication.
+
+Apply error boundaries + retry logic on API calls.
+
+Export functionality (CSV, JSON) for transfers.
+
+Implement mobile responsiveness.
+
+Use SSE/WebSocket for live updates.

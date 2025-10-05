@@ -54,6 +54,9 @@ services:
       - "9229:9229" # Debug port
     env_file:
       - ./backend/.env
+    environment:
+      # Graceful shutdown timeout (30 seconds)
+      - SHUTDOWN_TIMEOUT=30000
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,6 +67,9 @@ services:
     volumes:
       # Volume mounts for development hot-reload
       - ./backend/src:/app/src
+    # Graceful shutdown configuration
+    stop_signal: SIGTERM
+    stop_grace_period: 35s # Give 5s more than SHUTDOWN_TIMEOUT
 
   # Frontend - Next.js (Development)
   frontend:

@@ -10,6 +10,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// "postgresql://template_user:template_password@localhost:5432/template_db"
+
 model Users {
   id      String @id @default(uuid(7)) @db.Uuid
   api_key String @unique @db.VarChar(255)
@@ -103,9 +105,10 @@ model IndexerState {
   contract_address String @db.VarChar(42)
 
   // Block tracking
-  last_processed_block BigInt
-  current_block        BigInt
-  start_block          BigInt
+  last_processed_block    BigInt
+  highest_processed_block BigInt
+  current_block           BigInt
+  start_block             BigInt
 
   // Status
   status         String  @default("stopped") @db.VarChar(20) // stopped, running, paused, error

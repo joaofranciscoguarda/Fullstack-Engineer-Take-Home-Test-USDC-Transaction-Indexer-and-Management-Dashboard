@@ -21,7 +21,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Generate Prisma Client
-RUN pnpm prisma generate
+RUN pnpm prisma generate --schema=src/database/prisma/schema.prisma
 
 # Create a non-root user for development
 RUN addgroup -g 1001 -S nodejs
@@ -71,7 +71,7 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 
 # Generate Prisma Client
-RUN pnpm prisma generate
+RUN pnpm prisma generate --schema=src/database/prisma/schema.prisma
 
 # Build the application
 RUN pnpm build

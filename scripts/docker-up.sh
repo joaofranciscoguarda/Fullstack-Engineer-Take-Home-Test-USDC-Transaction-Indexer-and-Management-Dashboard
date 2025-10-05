@@ -14,7 +14,7 @@ if ! cmp -s package.json.md5 package.json.md5.last; then
     echo "package.json changed, rebuilding image"
     docker image prune --force
     docker volume prune --force
-    docker compose up --remove-orphans -V --build app
+    docker compose up --remove-orphans -V --build
 else
     echo "package.json didn't change, starting containers"
     docker compose up --remove-orphans

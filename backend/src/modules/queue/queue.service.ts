@@ -64,9 +64,25 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    this.logger.log('Queue service shutting down...');
+
+    // Clear metrics interval
     if (this.metricsInterval) {
       clearInterval(this.metricsInterval);
       this.logger.log('Queue service metrics interval cleared');
+    }
+
+    // Gracefully close all queues
+    try {
+      await Promise.all([
+        this.blockRangesQueue.close(),
+        this.catchupQueue.close(),
+        this.reorgHandlerQueue.close(),
+        this.walletNotificationQueue.close(),
+      ]);
+      this.logger.log('All queues closed successfully');
+    } catch (error) {
+      this.logger.error('Error closing queues:', error);
     }
   }
 
@@ -152,7 +168,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         fromBlock: data.fromBlock.toString(),
         toBlock: data.toBlock.toString(),
         chunkSize: data.chunkSize.toString(),
-      } as any,
+      },
       {
         priority: 5, // Higher priority than normal block ranges
         jobId: `catchup-${data.chainId}-${data.fromBlock}-${data.toBlock}`,

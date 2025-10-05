@@ -42,9 +42,14 @@ export class CatchupConsumer extends WorkerHost {
       let chunksCreated = 0;
 
       while (currentBlock < to) {
-        const nextBlock = currentBlock + chunk > to ? to : currentBlock + chunk;
+        // Use smaller chunks for catch-up to avoid RPC limits
+        const catchUpChunkSize = Math.min(Number(chunk), 100); // Max 100 blocks per chunk
+        const nextBlock =
+          currentBlock + BigInt(catchUpChunkSize) > to
+            ? to
+            : currentBlock + BigInt(catchUpChunkSize);
 
-        // Enqueue block range job with higher priority
+        // Enqueue block range job with highest priority for catch-up
         await this.queueService.addBlockRangeJob(
           {
             chainId,
@@ -52,7 +57,7 @@ export class CatchupConsumer extends WorkerHost {
             fromBlock: currentBlock,
             toBlock: nextBlock,
           },
-          { priority: 5 }, // Higher priority for catch-up
+          { priority: 1 }, // Highest priority for catch-up (lower number = higher priority)
         );
 
         chunksCreated++;
@@ -65,15 +70,6 @@ export class CatchupConsumer extends WorkerHost {
 
       this.logger.log(
         `Catch-up complete: created ${chunksCreated} chunk jobs for chain ${chainId}`,
-      );
-
-      // Update state - exit catch-up mode
-      await this.indexerStateRepo.updateState(
-        chainId,
-        contractAddress,
-        new IndexerState({
-          is_catching_up: false,
-        }),
       );
 
       return { chunksCreated };

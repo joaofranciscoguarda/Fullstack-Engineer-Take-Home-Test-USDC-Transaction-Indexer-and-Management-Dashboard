@@ -1,0 +1,30 @@
+meta {
+  name: Catch-up Queue
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{base_url}}/api/indexer/catch-up-queue
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  X-API-Key: {{api_key}}
+}
+
+body:json {
+  {
+    "chainId": 11155111,
+    "contractAddress": "0xA0b86a33E6441d5c5e1c4e6b1b8c0c2b3b4b5b6b",
+    "fromBlock": 1000000,
+    "toBlock": 1001000
+  }
+}
+
+vars:pre-request {
+  base_url = http://localhost:3000
+  api_key = your-api-key-here
+}

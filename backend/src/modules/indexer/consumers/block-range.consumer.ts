@@ -14,7 +14,7 @@ import { CoordinatorService } from '../services/coordinator.service';
 
 /** Processes block range jobs and fetches Transfer events */
 @Processor('block-ranges', {
-  concurrency: 1, // Reduced to 1 to avoid overwhelming RPC providers
+  concurrency: parseInt(process.env.BLOCK_RANGE_WORKERS || '6', 10), // Reduced to 1 to avoid overwhelming RPC providers
   stalledInterval: 60000, // Check for stalled jobs every 60s
   maxStalledCount: 2, // More tolerance for rate limiting
 })
@@ -52,9 +52,6 @@ export class BlockRangeConsumer extends WorkerHost {
       );
 
       if (transfers.length > 0) {
-        this.logger.debug(
-          `[DEBUG] Job ${job.id}: Starting database save for ${transfers.length} transfers`,
-        );
         const startTime = Date.now();
 
         const saved = await this.transfersRepo.bulkUpsert(transfers);
@@ -63,18 +60,12 @@ export class BlockRangeConsumer extends WorkerHost {
         this.logger.log(
           `✓ Saved ${saved.length} transfers (blocks ${from}-${to}) - contract ${contractAddress} - chain ${chainId} in ${saveTime}ms`,
         );
-        this.logger.debug(
-          `[DEBUG] Job ${job.id}: Database save completed in ${saveTime}ms`,
-        );
       } else {
         this.logger.debug(
           `[DEBUG] Job ${job.id}: No transfers found, skipping database save`,
         );
       }
 
-      this.logger.debug(
-        `[DEBUG] Job ${job.id}: Updating indexer state to block ${to}`,
-      );
       await this.indexerStateRepo.updateLastProcessedBlock(
         chainId,
         contractAddress,
@@ -83,7 +74,6 @@ export class BlockRangeConsumer extends WorkerHost {
       );
 
       await job.updateProgress(100);
-      this.logger.debug(`[DEBUG] Job ${job.id}: Job completed successfully`);
 
       const blockCount = Number(to - from + 1n);
       if (blockCount > 100) {
@@ -160,9 +150,8 @@ export class BlockRangeConsumer extends WorkerHost {
       },
     });
 
-    const transfers: Transfer[] = [];
+    // Group logs by block to fetch block data efficiently
     const logsByBlock = new Map<bigint, Log[]>();
-
     for (const log of logs) {
       if (log.blockNumber === null) continue;
       if (!logsByBlock.has(log.blockNumber)) {
@@ -171,6 +160,7 @@ export class BlockRangeConsumer extends WorkerHost {
       logsByBlock.get(log.blockNumber)!.push(log);
     }
 
+    // Fetch block data for timestamps
     const blockData = new Map<bigint, any>();
     for (const blockNumber of logsByBlock.keys()) {
       try {
@@ -187,51 +177,14 @@ export class BlockRangeConsumer extends WorkerHost {
       }
     }
 
-    for (const log of logs) {
-      try {
-        if (
-          !log.blockNumber ||
-          !log.logIndex ||
-          !log.topics ||
-          log.topics.length < 3 ||
-          !log.data
-        )
-          continue;
-
-        const block = blockData.get(log.blockNumber);
-        if (!block) continue;
-
-        const fromAddress = `0x${log.topics[1]!.slice(26)}`;
-        const toAddress = `0x${log.topics[2]!.slice(26)}`;
-        const value = BigInt(`0x${log.data.slice(2)}`);
-
-        transfers.push(
-          new Transfer({
-            tx_hash: log.transactionHash as string,
-            log_index: log.logIndex,
-            block_number: log.blockNumber,
-            block_hash: log.blockHash as string,
-            timestamp: new Date(Number(block.timestamp) * 1000),
-            from_address: fromAddress.toLowerCase(),
-            to_address: toAddress.toLowerCase(),
-            amount: value,
-            contract_id: contract.id!,
-            contract_address: contractAddress.toLowerCase(),
-            chain_id: chainId,
-            status: 1,
-            is_confirmed: false,
-            confirmations: 0,
-          }),
-        );
-      } catch (error) {
-        this.logger.error(
-          `Error processing log (block ${log.blockNumber}, tx ${log.transactionHash})`,
-          error,
-        );
-      }
-    }
-
-    return transfers;
+    // Use the static fromLogs method to parse transfers
+    return Transfer.fromLogs(
+      logs,
+      chainId,
+      contractAddress,
+      contract.id!,
+      blockData,
+    );
   }
 
   private async splitAndRequeueJob(

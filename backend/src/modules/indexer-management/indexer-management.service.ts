@@ -10,6 +10,7 @@ import {
   ReorgsRepository,
 } from '@/database/prisma/repositories';
 import { QueueService } from '@/modules/queue';
+import { BlockchainService } from '@/modules/blockchain';
 import {
   StartIndexerDto,
   ResetIndexerDto,
@@ -26,6 +27,7 @@ export class IndexerManagementService {
     private readonly indexerStateRepo: IndexerStateRepository,
     private readonly reorgsRepo: ReorgsRepository,
     private readonly queueService: QueueService,
+    private readonly blockchainService: BlockchainService,
   ) {}
 
   /**
@@ -235,5 +237,89 @@ export class IndexerManagementService {
   async getQueueMetrics() {
     const metrics = await this.queueService.getQueueMetrics();
     return metrics;
+  }
+
+  /**
+   * Add a catch-up job using the coordinator service with proper chunking
+   */
+  async addCatchUpJob(dto: CatchUpIndexerDto) {
+    const { chainId, contractAddress, fromBlock, toBlock } = dto;
+
+    // Validate block range (max 2k blocks)
+    const blockRange = toBlock - fromBlock;
+    if (blockRange > 2000) {
+      throw new BadRequestException(
+        `Block range too large: ${blockRange} blocks. Maximum allowed is 2000 blocks.`,
+      );
+    }
+
+    // Validate block numbers are positive
+    if (fromBlock < 0 || toBlock < 0) {
+      throw new BadRequestException(
+        `Block numbers must be positive. Got fromBlock: ${fromBlock}, toBlock: ${toBlock}`,
+      );
+    }
+
+    // Validate fromBlock <= toBlock
+    if (fromBlock > toBlock) {
+      throw new BadRequestException(
+        `fromBlock (${fromBlock}) must be <= toBlock (${toBlock})`,
+      );
+    }
+
+    // Check if indexer exists
+    const state = await this.indexerStateRepo.getState(
+      chainId,
+      contractAddress,
+    );
+    if (!state) {
+      throw new NotFoundException(
+        `Indexer not found for chain ${chainId} and contract ${contractAddress}`,
+      );
+    }
+
+    // Get current block number from blockchain
+    this.blockchainService.switchChain(chainId);
+    let currentBlock: bigint;
+    try {
+      currentBlock = await this.blockchainService.getBlockNumber();
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to get current block number for chain ${chainId}: ${error.message}`,
+      );
+    }
+
+    // Validate blocks are not in the future
+    if (fromBlock > Number(currentBlock) || toBlock > Number(currentBlock)) {
+      throw new BadRequestException(
+        `Nice try bro! 😄 Block range ${fromBlock}-${toBlock} is beyond current block ${currentBlock}`,
+      );
+    }
+
+    // Use the coordinator service to trigger catch-up with proper chunking
+    await this.coordinatorService.triggerCatchUp(
+      chainId,
+      contractAddress,
+      BigInt(fromBlock),
+      BigInt(toBlock),
+    );
+
+    this.logger.log(
+      `Triggered catch-up via coordinator: ${fromBlock}-${toBlock} for chain ${chainId}, contract ${contractAddress}`,
+    );
+
+    return {
+      message: `Catch-up triggered successfully via coordinator!`,
+      details: {
+        chainId,
+        contractAddress,
+        fromBlock,
+        toBlock,
+        blockRange,
+        currentBlock: Number(currentBlock),
+        status: 'triggered',
+      },
+      info: 'The coordinator will handle chunking and queue management with proper RPC limit handling.',
+    };
   }
 }

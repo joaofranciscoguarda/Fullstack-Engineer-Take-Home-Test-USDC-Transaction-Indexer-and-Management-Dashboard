@@ -51,6 +51,7 @@ export class IndexerStateRepository extends BaseRepository<
         chain_id: chainId,
         contract_address: contractAddress.toLowerCase(),
         last_processed_block: startBlock,
+        highest_processed_block: startBlock,
         current_block: startBlock,
         start_block: startBlock,
         status: 'stopped',
@@ -137,14 +138,26 @@ export class IndexerStateRepository extends BaseRepository<
     contractAddress: string,
     currentBlock: bigint,
   ): Promise<void> {
-    await this.prisma.indexerState.update({
+    await this.prisma.indexerState.upsert({
       where: {
         unique_indexer_state: {
           chain_id: chainId,
           contract_address: contractAddress.toLowerCase(),
         },
       },
-      data: {
+      create: {
+        chain_id: chainId,
+        contract_address: contractAddress.toLowerCase(),
+        last_processed_block: currentBlock,
+        highest_processed_block: currentBlock,
+        current_block: currentBlock,
+        start_block: currentBlock,
+        status: 'stopped',
+        is_catching_up: false,
+        error_count: 0,
+        transfers_indexed: BigInt(0),
+      },
+      update: {
         current_block: currentBlock,
         updated_at: new Date(),
       },
@@ -160,15 +173,39 @@ export class IndexerStateRepository extends BaseRepository<
     blockNumber: bigint,
     transfersCount: number,
   ): Promise<void> {
-    await this.prisma.indexerState.update({
+    // First, get the current state to check if we should update
+    const currentState = await this.getState(chainId, contractAddress);
+
+    if (currentState && currentState.highest_processed_block >= blockNumber) {
+      // Skip update if the new block number is not higher than current
+      // This prevents backward movement when jobs complete out of order
+      return;
+    }
+
+    // Use upsert to handle both create and update scenarios
+    await this.prisma.indexerState.upsert({
       where: {
         unique_indexer_state: {
           chain_id: chainId,
           contract_address: contractAddress.toLowerCase(),
         },
       },
-      data: {
+      create: {
+        chain_id: chainId,
+        contract_address: contractAddress.toLowerCase(),
         last_processed_block: blockNumber,
+        highest_processed_block: blockNumber,
+        current_block: blockNumber,
+        start_block: blockNumber,
+        status: 'running',
+        is_catching_up: false,
+        error_count: 0,
+        transfers_indexed: BigInt(transfersCount),
+        last_indexed_at: new Date(),
+      },
+      update: {
+        last_processed_block: blockNumber,
+        highest_processed_block: blockNumber,
         transfers_indexed: {
           increment: transfersCount,
         },
@@ -187,14 +224,28 @@ export class IndexerStateRepository extends BaseRepository<
     contractAddress: string,
     errorMessage: string,
   ): Promise<void> {
-    await this.prisma.indexerState.update({
+    await this.prisma.indexerState.upsert({
       where: {
         unique_indexer_state: {
           chain_id: chainId,
           contract_address: contractAddress.toLowerCase(),
         },
       },
-      data: {
+      create: {
+        chain_id: chainId,
+        contract_address: contractAddress.toLowerCase(),
+        last_processed_block: BigInt(0),
+        highest_processed_block: BigInt(0),
+        current_block: BigInt(0),
+        start_block: BigInt(0),
+        status: 'error',
+        is_catching_up: false,
+        error_count: 1,
+        last_error: errorMessage,
+        last_error_at: new Date(),
+        transfers_indexed: BigInt(0),
+      },
+      update: {
         error_count: {
           increment: 1,
         },

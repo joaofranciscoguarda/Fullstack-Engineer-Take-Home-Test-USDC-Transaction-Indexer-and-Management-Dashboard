@@ -1,0 +1,48 @@
+---
+globs: backend/**/*.ts
+alwaysApply: false
+---
+
+Context:
+
+NestJS with dependency injection.
+
+Indexer for USDC Transfer events (ERC-20 on Ethereum mainnet).
+
+Store indexed transfers in PostgreSQL (Prisma).
+
+Provide REST API endpoints for both transfer queries and indexer management.
+
+Include fault tolerance: retries, reorg handling, multiple RPC failover.
+
+Tests: unit + integration with Jest.
+
+Rules:
+
+Use Ethers.js v6 for blockchain interaction.
+
+Always persist indexer state (last block, error states).
+
+Design REST endpoints per spec (/api/transfers, /api/indexer/status, etc.).
+
+Add Swagger/OpenAPI docs under /api/docs.
+
+Follow NestJS module/service/controller patterns.
+
+Logging must be structured.
+
+Implement authentication (API keys).
+
+Prisma migrations must exist for schema changes.
+
+Folder structure must be followed:
+
+src/
+├── common/ # Where all the common to whole project files are
+├── config/ # Where all the configs are
+├── modules/ # Where all the modules are
+├── app.module.ts
+├── main.ts
+└── ...
+
+Note: AVOID doing too much documentation, only little documents, less than 200 lines.

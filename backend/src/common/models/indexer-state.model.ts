@@ -12,6 +12,7 @@ export class IndexerState
   declare chain_id: SupportedChains;
   declare contract_address: string;
   declare last_processed_block: bigint;
+  declare highest_processed_block: bigint;
   declare current_block: bigint;
   declare start_block: bigint;
   declare status: string;
@@ -23,24 +24,6 @@ export class IndexerState
   declare transfers_indexed: bigint;
   declare last_indexed_at?: Date | null;
   declare updated_at?: Date;
-
-  fill(data: Partial<IIndexerState>) {
-    super.fill(data);
-    this.fillProperty(data, 'id');
-    this.fillProperty(data, 'chain_id');
-    this.fillProperty(data, 'contract_address');
-    this.fillProperty(data, 'last_processed_block');
-    this.fillProperty(data, 'current_block');
-    this.fillProperty(data, 'start_block');
-    this.fillProperty(data, 'status');
-    this.fillProperty(data, 'is_catching_up');
-    this.fillProperty(data, 'error_count');
-    this.fillProperty(data, 'last_error');
-    this.fillProperty(data, 'last_error_at');
-    this.fillProperty(data, 'blocks_per_second');
-    this.fillProperty(data, 'transfers_indexed');
-    this.fillProperty(data, 'last_indexed_at');
-  }
 
   /**
    * Define default response class for IndexerState
@@ -66,6 +49,7 @@ export interface IIndexerState extends IBaseModel<'string'> {
   chain_id: SupportedChains;
   contract_address: string;
   last_processed_block: bigint;
+  highest_processed_block: bigint;
   current_block: bigint;
   start_block: bigint;
   status: string;

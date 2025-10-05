@@ -100,7 +100,7 @@ export class IndexerManagementController {
   @Post('catch-up')
   async catchUp(@Body() dto: CatchUpIndexerDto) {
     this.logger.log('POST /api/indexer/catch-up', dto);
-    return this.indexerManagementService.triggerCatchUp(dto);
+    return this.indexerManagementService.addCatchUpJob(dto);
   }
 
   /**

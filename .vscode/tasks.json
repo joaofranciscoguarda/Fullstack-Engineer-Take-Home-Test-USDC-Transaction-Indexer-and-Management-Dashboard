@@ -37,6 +37,11 @@
 			"command": "docker compose exec backend pnpm migrate:reset-and-seed"
 		},
 		{
+			"label": "prisma generate",
+			"type": "shell",
+			"command": "docker compose exec backend pnpm prisma generate"
+		},
+		{
 			"label": "seed",
 			"type": "shell",
 			"command": "docker compose exec backend pnpm seed"

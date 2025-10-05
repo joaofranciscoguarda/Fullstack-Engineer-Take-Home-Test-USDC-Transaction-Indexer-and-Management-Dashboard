@@ -30,6 +30,8 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
   private leaderCheckInterval?: NodeJS.Timeout;
   private pendingJobs: Set<string> = new Set(); // Track pending jobs to prevent duplicates
   private workerCount = 1; // Default worker count, will be updated from queue metrics
+  private isInitialized = false; // Prevent multiple initializations
+  private instanceId = Math.random().toString(36).substr(2, 9); // Unique instance identifier
 
   constructor(
     private readonly indexerStateRepo: IndexerStateRepository,
@@ -43,21 +45,59 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
-    this.logger.log('Coordinator initializing...');
+    if (this.isInitialized) {
+      this.logger.warn(
+        `[INSTANCE-${this.instanceId}] Coordinator already initialized, skipping...`,
+      );
+      return;
+    }
+
+    this.logger.log(
+      `[INSTANCE-${this.instanceId}] Coordinator initializing...`,
+    );
+    this.isInitialized = true;
     await this.startLeaderElection();
   }
 
   async onModuleDestroy() {
     this.logger.log('Coordinator shutting down...');
+
+    // Stop all active indexers first
     await this.stopAllIndexers();
+
+    // Clear leader check interval
     if (this.leaderCheckInterval) {
       clearInterval(this.leaderCheckInterval);
+      this.leaderCheckInterval = undefined;
+    }
+
+    // Wait for pending jobs to complete (with timeout)
+    const maxWaitTime = 15000; // 15 seconds
+    const checkInterval = 1000; // Check every second
+    let waited = 0;
+
+    while (this.pendingJobs.size > 0 && waited < maxWaitTime) {
+      this.logger.log(
+        `Waiting for ${this.pendingJobs.size} pending jobs to complete...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, checkInterval));
+      waited += checkInterval;
+    }
+
+    if (this.pendingJobs.size > 0) {
+      this.logger.warn(
+        `Still have ${this.pendingJobs.size} pending jobs after timeout, proceeding with shutdown`,
+      );
+    } else {
+      this.logger.log(
+        'All pending jobs completed, coordinator shutdown complete',
+      );
     }
   }
 
   private async startLeaderElection() {
     this.isLeader = true;
-    this.logger.log('Leader elected');
+    this.logger.log(`[INSTANCE-${this.instanceId}] Leader elected`);
     if (this.isLeader) {
       await this.startCoordinating();
     }
@@ -298,7 +338,6 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       queueMetrics.blockRanges.waiting > this.workerCount * maxPendingPerWorker;
 
     if (lag <= realTimeThreshold) {
-      // [TODO] remove to real time mode
       // When very close to current block, wait for block time to avoid spam
       if (lag <= nearCurrentThreshold) {
         this.logger.debug(
@@ -317,7 +356,7 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
         contractAddress,
         fromBlock,
         toBlock,
-        10,
+        20, // Lower priority for real-time (higher number = lower priority)
         'Real-time',
       );
     } else if (
@@ -367,10 +406,30 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
     fromBlock: bigint,
     toBlock: bigint,
   ): Promise<void> {
-    const chunkSize = BigInt(
-      this.configService.get<number>('CATCHUP_CHUNK_SIZE', 25),
+    const lag = toBlock - fromBlock;
+
+    // Use ChunkSizeManagerService to calculate optimal chunk size for catch-up
+    let optimalChunkSize = this.chunkSizeManager.calculateOptimalChunkSize(
+      lag,
+      chainId,
     );
 
+    // For catch-up, use smaller chunks to avoid RPC limits
+    const maxCatchUpChunkSize = BigInt(
+      this.configService.get<number>('CATCHUP_CHUNK_SIZE', 50),
+    );
+
+    // Use the smaller of optimal chunk size or max catch-up chunk size
+    const chunkSize =
+      optimalChunkSize < maxCatchUpChunkSize
+        ? optimalChunkSize
+        : maxCatchUpChunkSize;
+
+    this.logger.log(
+      `Catch-up triggered: ${fromBlock}-${toBlock} (lag: ${lag}, chunk: ${chunkSize})`,
+    );
+
+    // Use the existing catchup queue with calculated chunk size
     await this.queueService.addCatchupJob({
       chainId,
       contractAddress,
@@ -378,8 +437,6 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       toBlock,
       chunkSize,
     });
-
-    this.logger.log(`Catch-up triggered: ${fromBlock}-${toBlock}`);
   }
 
   async resetIndexer(
@@ -456,8 +513,23 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
     chunkSize: bigint,
   ): Promise<void> {
     const lag = toBlock - fromBlock;
+
+    let optimalChunkSize = this.chunkSizeManager.calculateOptimalChunkSize(
+      lag,
+      chainId,
+    );
+
+    const maxDynamicCatchUpChunkSize = BigInt(
+      this.configService.get<number>('CATCHUP_CHUNK_SIZE', 50),
+    );
+
+    const dynamicCatchUpChunkSize =
+      optimalChunkSize < maxDynamicCatchUpChunkSize
+        ? optimalChunkSize
+        : maxDynamicCatchUpChunkSize;
+
     this.logger.log(
-      `Catch-up mode: ${fromBlock}-${toBlock} (lag: ${lag}, chunk: ${chunkSize})`,
+      `Catch-up mode: ${fromBlock}-${toBlock} (lag: ${lag}, chunk: ${dynamicCatchUpChunkSize})`,
     );
 
     await this.indexerStateRepo.updateState(
@@ -466,12 +538,13 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       new IndexerState({ is_catching_up: true }),
     );
 
+    // Use the existing catchup queue with calculated chunk size
     await this.queueService.addCatchupJob({
       chainId,
       contractAddress,
       fromBlock,
       toBlock,
-      chunkSize,
+      chunkSize: dynamicCatchUpChunkSize,
     });
   }
 
@@ -488,7 +561,7 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
     const blocksPerWorkerBigInt = BigInt(blocksPerWorker);
 
     this.logger.debug(
-      `[COORDINATED] Creating jobs for ${totalBlocks} blocks using ${workerCount} workers (${blocksPerWorker} blocks/worker), lastProcessed: ${lastProcessed}`,
+      `[INSTANCE-${this.instanceId}] [COORDINATED] Creating jobs for ${totalBlocks} blocks using ${workerCount} workers (${blocksPerWorker} blocks/worker), lastProcessed: ${lastProcessed}`,
     );
 
     // Calculate how many jobs we need
@@ -506,7 +579,7 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       const blockCount = Number(jobToBlock - currentBlock + 1n);
 
       this.logger.debug(
-        `[COORDINATED] Job ${i + 1}/${actualJobsToCreate}: blocks ${currentBlock}-${jobToBlock} (${blockCount} blocks)`,
+        `[INSTANCE-${this.instanceId}] [COORDINATED] Job ${i + 1}/${actualJobsToCreate}: blocks ${currentBlock}-${jobToBlock} (${blockCount} blocks)`,
       );
 
       await this.processBlockRange(
@@ -514,7 +587,7 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
         contractAddress,
         currentBlock,
         jobToBlock,
-        5,
+        15, // Lower priority for coordinated jobs
         'Coordinated',
       );
 
@@ -533,7 +606,7 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
         contractAddress,
         currentBlock,
         toBlock,
-        5,
+        15, // Lower priority for coordinated jobs
         'Coordinated-Final',
       );
     }
@@ -588,7 +661,7 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
 
       const blockCount = Number(toBlock - fromBlock + 1n);
       this.logger.debug(
-        `[DEBUG] ${mode}: Created job ${jobId} for blocks ${fromBlock}-${toBlock} (${blockCount} blocks)`,
+        `[INSTANCE-${this.instanceId}] [DEBUG] ${mode}: Created job ${jobId} for blocks ${fromBlock}-${toBlock} (${blockCount} blocks)`,
       );
 
       // Clean up pending job after a delay to allow for processing

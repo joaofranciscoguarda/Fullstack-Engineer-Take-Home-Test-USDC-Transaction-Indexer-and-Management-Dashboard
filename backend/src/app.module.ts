@@ -16,12 +16,13 @@ import { ApiKeyGuard } from '@/common/guards/api-key.guard';
 import blockchainConfig from '@/config/blockchain.config';
 import queueConfig from '@/config/queue.config';
 import workerConfig from '@/config/worker.config';
+import staticConfig from '@/config/static.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [blockchainConfig, queueConfig, workerConfig],
+      load: [blockchainConfig, queueConfig, workerConfig, staticConfig],
       envFilePath: ['.env', '.env.local'],
     }),
     DatabaseModule,

@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{base_url}}/api/indexer/stop
+  url: {{base_url}}/api/indexer/catch-up
   body: json
   auth: bearer
 }
@@ -17,7 +17,9 @@ auth:bearer {
 body:json {
   {
     "chainId": 1,
-    "contractAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+    "contractAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "fromBlock": 23498000,
+    "toBlock": 23500000
   }
 }
 
