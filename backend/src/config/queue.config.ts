@@ -67,11 +67,11 @@ export default registerAs('queue', (): QueueConfigInterface => {
     queues: {
       blockRanges: {
         name: 'block-ranges',
-        concurrency: parseInt(getEnvVar('BLOCK_RANGES_CONCURRENCY', '5'), 10),
+        concurrency: parseInt(getEnvVar('BLOCK_RANGES_CONCURRENCY', '10'), 10),
       },
       catchup: {
         name: 'catchup',
-        concurrency: parseInt(getEnvVar('CATCHUP_CONCURRENCY', '3'), 10),
+        concurrency: parseInt(getEnvVar('CATCHUP_CONCURRENCY', '5'), 10),
       },
       reorgHandler: {
         name: 'reorg-handler',

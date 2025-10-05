@@ -17,6 +17,11 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
     return process.env[key] || defaultValue;
   };
 
+  // Get configurable block range for faster indexing
+  const defaultBlockRange = BigInt(
+    getOptionalEnvVar('BLOCK_RANGE_SIZE', '100'),
+  );
+
   const config: BlockchainConfigInterface = {
     // Global blockchain settings
     defaultChainId: parseInt(getOptionalEnvVar('DEFAULT_CHAIN_ID', '1'), 10),
@@ -46,7 +51,7 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
           {
             name: 'Default Mainnet RPC',
             transport: mainnet.rpcUrls.default.http[0], // Use Viem's default RPC
-            blockRange: 20n, // Smaller chunks for better performance
+            blockRange: defaultBlockRange, // Configurable via BLOCK_RANGE_SIZE env var
             timeout: 30000, // Increased timeout
             retryAttempts: 5, // More retries
           },
@@ -56,7 +61,7 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
                 {
                   name: '1 Mainnet',
                   transport: process.env['1_1_TRANSPORT'],
-                  blockRange: 20n, // Smaller chunks for better performance
+                  blockRange: defaultBlockRange,
                   timeout: 30000,
                   retryAttempts: 5,
                 },
@@ -67,7 +72,7 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
                 {
                   name: '2 Mainnet',
                   transport: process.env['1_2_TRANSPORT'],
-                  blockRange: 20n, // Smaller chunks for better performance
+                  blockRange: defaultBlockRange,
                   timeout: 30000,
                   retryAttempts: 5,
                 },
@@ -78,7 +83,7 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
                 {
                   name: '3 Mainnet',
                   transport: process.env['1_3_TRANSPORT'],
-                  blockRange: 20n, // Smaller chunks for better performance
+                  blockRange: defaultBlockRange,
                   timeout: 30000,
                   retryAttempts: 5,
                 },
@@ -89,7 +94,7 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
                 {
                   name: '4 Mainnet',
                   transport: process.env['1_4_TRANSPORT'],
-                  blockRange: 20n, // Smaller chunks for better performance
+                  blockRange: defaultBlockRange,
                   timeout: 30000,
                   retryAttempts: 5,
                 },

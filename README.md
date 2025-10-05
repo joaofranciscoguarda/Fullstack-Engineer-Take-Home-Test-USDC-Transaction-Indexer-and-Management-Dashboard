@@ -23,7 +23,7 @@ Use the VS Code tasks for easy management:
    - Press `Ctrl+Shift+P` → "Tasks: Run Task" → "docker up"
    - Or run: `docker compose up -V --remove-orphans`
 
-2. **Reset database and seed data:**
+2. **Migrate database and seed data:**
    - Press `Ctrl+Shift+P` → "Tasks: Run Task" → "migrate:reset-and-seed"
    - Or run: `docker compose exec backend pnpm migrate:reset-and-seed`
 
@@ -118,65 +118,36 @@ curl http://localhost:8080/api/indexer/status?chainId=1&contractAddress=0xa0b869
 
 ## 🔧 **Environment Configuration**
 
-### **Required Environment Variables**
+### **Impactful Environment Variables**
 
 ```bash
-# =================================================================
-# DATABASE CONFIGURATION
-# =================================================================
-DB_DATABASE=indexer_db
-DB_USERNAME=indexer_user
-DB_PASSWORD=indexer_password
-DB_ROOT_PASSWORD=root_password
-DATABASE_URL="postgresql://indexer_user:indexer_password@postgres:5432/indexer_db"
-
-# =================================================================
-# REDIS CONFIGURATION
-# =================================================================
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_URL="redis://redis:6379"
 
 # =================================================================
 # BLOCKCHAIN CONFIGURATION
 # =================================================================
-DEFAULT_CHAIN_ID=1
-DEFAULT_BLOCKCHAIN_PROVIDER=viem
 BLOCKCHAIN_TIMEOUT=30000
 BLOCKCHAIN_RETRY_ATTEMPTS=3
 
 # =================================================================
-# ETHEREUM MAINNET RPC PROVIDERS
-# =================================================================
-ETHEREUM_INFURA_TRANSPORT=https://mainnet.infura.io/v3/YOUR_INFURA_KEY
-ETHEREUM_ALCHEMY_TRANSPORT=https://eth-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
-ETHEREUM_ANKR_TRANSPORT=https://rpc.ankr.com/eth
-
-# =================================================================
-# POLYGON MAINNET RPC PROVIDERS (Optional)
-# =================================================================
-POLYGON_INFURA_TRANSPORT=https://polygon-mainnet.infura.io/v3/YOUR_INFURA_KEY
-POLYGON_ALCHEMY_TRANSPORT=https://polygon-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
-
-# =================================================================
-# APPLICATION CONFIGURATION
-# =================================================================
-NODE_ENV=development
-PORT=8080
-API_PREFIX=api
-
-# =================================================================
 # INDEXER CONFIGURATION
 # =================================================================
-INDEXER_CHUNK_SIZE=1000
-INDEXER_MAX_CHUNK_SIZE=10000
-INDEXER_POLLING_INTERVAL=2000
-INDEXER_CONFIRMATIONS=12
-INDEXER_WORKERS_BLOCK_RANGES=5
-INDEXER_WORKERS_CATCHUP=3
-INDEXER_WORKERS_REORG=1
-INDEXER_WORKERS_NOTIFICATIONS=10
+DEFAULT_CHAIN_ID=1
+BLOCK_RANGE_WORKERS=10  # Number of concurrent workers for block processing (default: 10)
+CATCHUP_WORKERS=
+
+BLOCK_RANGE_SIZE=300  # Blocks per job (default: 500, increase for faster indexing, max ~5000 for USDC)
+INDEXER_POLLING_INTERVAL=10000  # Polling interval in ms (default: 10000)
+MAX_CATCHUP_CHUNK_SIZE=500  # Max chunk size during catch-up (default: 500)
+MIN_CATCHUP_CHUNK_SIZE=
+REALTIME_THRESHOLD=
+CATCHUP_THRESHOLD=
+INDEXER_STOP_AT_BLOCK=
+
+1_1_TRANSPORT=https://eth.llamarpc.com
+1_2_TRANSPORT=https://rpc.ankr.com/eth/ # INSERT HERE YOUR API KEY
+1_3_TRANSPORT=https://ethereum-mainnet.gateway.tatum.io
+
+1_INDEXER_START_BLOCK=23500000
 ```
 
 ### **Getting RPC Provider Keys**
@@ -265,69 +236,53 @@ The indexer automatically adjusts block ranges based on RPC capabilities:
 
 ---
 
-## 🗄️ **Database Schema**
+## ⚡ **Performance Tuning**
 
-### **Core Tables**
+### **Optimizing Indexing Speed**
 
-#### **transfers**
+The indexer's performance is controlled by several key parameters:
 
-Stores all indexed USDC transfer events:
+1. **`BLOCK_RANGE_SIZE`** (default: 200)
 
-```sql
-- id (uuid, primary key)
-- tx_hash (indexed)
-- log_index
-- block_number (indexed)
-- block_hash
-- timestamp (indexed)
-- from_address (indexed)
-- to_address (indexed)
-- amount (string for BigInt)
-- contract_id (FK)
-- contract_address (indexed)
-- chain_id (indexed)
-- confirmations
-- is_confirmed (indexed)
+   - Defines how many blocks are processed per job
+   - **Recommendation**: Start with 200, increase up to 2k for USDC (sparse events)
+   - Higher values = fewer jobs, faster indexing (but higher memory usage)
+   - Lower values = more jobs, better parallelism for dense events
+
+2. **`BLOCK_RANGE_WORKERS`** (default: 10)
+
+   - Number of concurrent workers processing blocks
+   - **Recommendation**: 8-16 workers depending on RPC rate limits
+   - More workers = faster processing (if RPC provider supports it)
+
+3. **`MAX_CATCHUP_CHUNK_SIZE`** (default: 200)
+   - Max chunk size during catch-up mode (when far behind)
+   - Should match or be slightly smaller than `BLOCK_RANGE_SIZE`
+
+### **Example Configuration for Maximum Speed:**
+
+```env
+# For fast indexing with good RPC providers (Alchemy, Infura Pro)
+BLOCK_RANGE_SIZE=2000
+BLOCK_RANGE_WORKERS=16
+MAX_CATCHUP_CHUNK_SIZE=2000
+BLOCK_RANGES_CONCURRENCY=16
+CATCHUP_CONCURRENCY=8
+INDEXER_POLLING_INTERVAL=5000
+
+# Add multiple RPC endpoints for better throughput
+1_1_TRANSPORT=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
+1_2_TRANSPORT=https://mainnet.infura.io/v3/YOUR_KEY
+1_3_TRANSPORT=https://rpc.ankr.com/eth/YOUR_KEY
 ```
 
-#### **indexer_state**
+**Expected Performance:**
 
-Tracks indexer state per chain/contract:
+- With default settings (500 blocks/job): ~50-100 blocks/second
+- With optimized settings (2000 blocks/job): ~200-500 blocks/second
+- Indexing 1 month of data (~216,000 blocks): 10-60 minutes depending on configuration
 
-```sql
-- chain_id + contract_address (unique)
-- last_processed_block
-- current_block
-- start_block
-- status (running, stopped, error, paused)
-- error_count, last_error
-- blocks_per_second
-- transfers_indexed
-```
-
-#### **contracts**
-
-Configures contracts to index:
-
-```sql
-- address
-- name, symbol, decimals
-- chains (JSONB array)
-- active
-```
-
-#### **reorgs**
-
-Tracks blockchain reorganizations:
-
-```sql
-- chain_id
-- detected_at_block
-- reorg_depth
-- old_block_hash, new_block_hash
-- status (detected, processing, resolved)
-- transfers_affected
-```
+---
 
 ---
 

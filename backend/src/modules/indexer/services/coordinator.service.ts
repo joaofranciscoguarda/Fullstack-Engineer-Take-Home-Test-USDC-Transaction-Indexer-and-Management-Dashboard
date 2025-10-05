@@ -432,9 +432,9 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       chainId,
     );
 
-    // For catch-up, use smaller chunks to avoid RPC limits
+    // For catch-up, use optimized chunks based on configuration
     const maxCatchUpChunkSize = BigInt(
-      this.configService.get<number>('CATCHUP_CHUNK_SIZE', 50),
+      this.configService.get<number>('MAX_CATCHUP_CHUNK_SIZE', 500),
     );
 
     // Use the smaller of optimal chunk size or max catch-up chunk size
@@ -538,7 +538,7 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
     );
 
     const maxDynamicCatchUpChunkSize = BigInt(
-      this.configService.get<number>('CATCHUP_CHUNK_SIZE', 50),
+      this.configService.get<number>('MAX_CATCHUP_CHUNK_SIZE', 500),
     );
 
     const dynamicCatchUpChunkSize =
