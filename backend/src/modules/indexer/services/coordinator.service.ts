@@ -256,10 +256,18 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
     const nearCurrentThreshold = 3n; // Within 3 blocks of current
     const ethereumBlockTime = 12000; // ~12 seconds per block
 
-    const optimalChunkSize = this.chunkSizeManager.calculateOptimalChunkSize(
+    let optimalChunkSize = this.chunkSizeManager.calculateOptimalChunkSize(
       lag,
       chainId,
     );
+
+    // CRITICAL SAFETY CHECK: Ensure chunk size is never 0 or negative
+    if (optimalChunkSize <= 0n) {
+      this.logger.error(
+        `[CRITICAL] Chunk size is ${optimalChunkSize}, forcing to minimum 1`,
+      );
+      optimalChunkSize = 1n;
+    }
 
     // Get queue metrics and worker info
     const queueMetrics = await this.queueService.getQueueMetrics();
@@ -270,23 +278,27 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
     // Update worker count based on active jobs
     this.workerCount = Math.max(1, queueMetrics.blockRanges.active);
 
-    // Don't create new jobs if there are too many pending relative to workers
-    const maxPendingPerWorker = 3; // Max 3 jobs per worker
+    // Get worker configuration from config
+    const configuredWorkers = this.configService.get<number>(
+      'BLOCK_RANGE_WORKERS',
+      4,
+    );
+
+    // Get block range from blockchain config (single source of truth)
+    const blockchainConfig = this.configService.get('blockchain');
+    const chainConfig = blockchainConfig?.chains?.[chainId];
+    const blocksPerWorker = chainConfig?.providers?.[0]?.blockRange
+      ? Number(chainConfig.providers[0].blockRange)
+      : 50; // fallback to 50 if not found
+    const maxPendingPerWorker = this.configService.get<number>(
+      'MAX_PENDING_PER_WORKER',
+      5,
+    );
     const tooManyPendingJobs =
       queueMetrics.blockRanges.waiting > this.workerCount * maxPendingPerWorker;
 
-    // DEBUG: Log queue state
-    this.logger.debug(
-      `[DEBUG] Queue State - Waiting: ${queueMetrics.blockRanges.waiting}, ` +
-        `Active: ${queueMetrics.blockRanges.active}, ` +
-        `Completed: ${queueMetrics.blockRanges.completed}, ` +
-        `Failed: ${queueMetrics.blockRanges.failed}, ` +
-        `Workers: ${this.workerCount}`,
-    );
-
     if (lag <= realTimeThreshold) {
-      this.logger.debug(`[DEBUG] Mode: Real-time`);
-
+      // [TODO] remove to real time mode
       // When very close to current block, wait for block time to avoid spam
       if (lag <= nearCurrentThreshold) {
         this.logger.debug(
@@ -295,11 +307,16 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
         await new Promise((resolve) => setTimeout(resolve, ethereumBlockTime));
       }
 
+      // Even in real-time mode, process small chunks (5-10 blocks) for efficiency
+      const realTimeChunkSize = lag <= 5n ? lag : 5n;
+      const fromBlock = state.last_processed_block + 1n;
+      const toBlock = fromBlock + realTimeChunkSize - 1n;
+
       await this.processBlockRange(
         chainId,
         contractAddress,
-        state.last_processed_block + 1n,
-        state.last_processed_block + 1n,
+        fromBlock,
+        toBlock,
         10,
         'Real-time',
       );
@@ -325,20 +342,21 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      this.logger.debug(`[DEBUG] Mode: Batch (chunk: ${optimalChunkSize})`);
       const nextBlock = state.last_processed_block + 1n;
       const toBlock =
         nextBlock + optimalChunkSize < currentBlock
-          ? nextBlock + optimalChunkSize
+          ? nextBlock + optimalChunkSize - 1n
           : currentBlock;
 
-      await this.processBlockRange(
+      // Intelligent block coordination based on worker count
+      await this.createCoordinatedJobs(
         chainId,
         contractAddress,
         nextBlock,
         toBlock,
-        5,
-        'Batch',
+        configuredWorkers,
+        blocksPerWorker,
+        state.last_processed_block,
       );
     }
   }
@@ -457,6 +475,70 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private async createCoordinatedJobs(
+    chainId: SupportedChains,
+    contractAddress: string,
+    fromBlock: bigint,
+    toBlock: bigint,
+    workerCount: number,
+    blocksPerWorker: number,
+    lastProcessed: bigint,
+  ): Promise<void> {
+    const totalBlocks = toBlock - fromBlock + 1n;
+    const blocksPerWorkerBigInt = BigInt(blocksPerWorker);
+
+    this.logger.debug(
+      `[COORDINATED] Creating jobs for ${totalBlocks} blocks using ${workerCount} workers (${blocksPerWorker} blocks/worker), lastProcessed: ${lastProcessed}`,
+    );
+
+    // Calculate how many jobs we need
+    const jobsNeeded = Math.ceil(Number(totalBlocks) / blocksPerWorker);
+    const actualJobsToCreate = Math.min(jobsNeeded, workerCount); // Don't create more jobs than workers
+
+    let currentBlock = fromBlock;
+
+    for (let i = 0; i < actualJobsToCreate && currentBlock <= toBlock; i++) {
+      const jobToBlock =
+        currentBlock + blocksPerWorkerBigInt - 1n > toBlock
+          ? toBlock
+          : currentBlock + blocksPerWorkerBigInt - 1n;
+
+      const blockCount = Number(jobToBlock - currentBlock + 1n);
+
+      this.logger.debug(
+        `[COORDINATED] Job ${i + 1}/${actualJobsToCreate}: blocks ${currentBlock}-${jobToBlock} (${blockCount} blocks)`,
+      );
+
+      await this.processBlockRange(
+        chainId,
+        contractAddress,
+        currentBlock,
+        jobToBlock,
+        5,
+        'Coordinated',
+      );
+
+      currentBlock = jobToBlock + 1n;
+    }
+
+    // If there are remaining blocks, create one more job
+    if (currentBlock <= toBlock) {
+      const remainingBlocks = Number(toBlock - currentBlock + 1n);
+      this.logger.debug(
+        `[COORDINATED] Final job: blocks ${currentBlock}-${toBlock} (${remainingBlocks} blocks)`,
+      );
+
+      await this.processBlockRange(
+        chainId,
+        contractAddress,
+        currentBlock,
+        toBlock,
+        5,
+        'Coordinated-Final',
+      );
+    }
+  }
+
   private async processBlockRange(
     chainId: SupportedChains,
     contractAddress: string,
@@ -465,18 +547,32 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
     priority: number,
     mode: string,
   ): Promise<void> {
-    if (fromBlock > toBlock) return;
+    // CRITICAL: Validate block range
+    if (fromBlock > toBlock) {
+      this.logger.error(
+        `[CRITICAL] Invalid block range: fromBlock ${fromBlock} > toBlock ${toBlock}`,
+      );
+      return;
+    }
+
+    if (fromBlock <= 0n || toBlock <= 0n) {
+      this.logger.error(
+        `[CRITICAL] Invalid block numbers: fromBlock ${fromBlock}, toBlock ${toBlock}`,
+      );
+      return;
+    }
 
     // Create unique job identifier to prevent duplicates
     const jobId = `${chainId}-${contractAddress}-${fromBlock}-${toBlock}`;
 
     // Check if this job is already pending
-    if (this.pendingJobs.has(jobId)) {
-      this.logger.debug(
-        `[DEBUG] Job already pending: ${jobId}, skipping duplicate creation`,
-      );
-      return;
-    }
+    // Temporarily disabled to fix indexing issue
+    // if (this.pendingJobs.has(jobId)) {
+    //   this.logger.debug(
+    //     `[DEBUG] Job already pending: ${jobId}, skipping duplicate creation`,
+    //   );
+    //   return;
+    // }
 
     // Mark job as pending
     this.pendingJobs.add(jobId);
@@ -498,7 +594,7 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       // Clean up pending job after a delay to allow for processing
       setTimeout(() => {
         this.pendingJobs.delete(jobId);
-      }, 30000); // Remove after 30 seconds
+      }, 5000); // Remove after 5 seconds (shorter than polling interval)
     } catch (error) {
       // Remove from pending if job creation failed
       this.pendingJobs.delete(jobId);

@@ -12,8 +12,17 @@ export class ChunkSizeManagerService {
 
   getMaxChunkSize(chainId: SupportedChains): bigint {
     const dynamicMax = this.maxChunkSizePerChain.get(chainId);
+
+    // Get block range from blockchain config (single source of truth)
+    const blockchainConfig = this.configService.get('blockchain');
+    const chainConfig = blockchainConfig?.chains?.[chainId];
+    const rpcBlockRange = chainConfig?.providers?.[0]?.blockRange || 50n;
+
     const configMax = BigInt(
-      this.configService.get<number>('MAX_CATCHUP_CHUNK_SIZE', 50), // Reduced to 50 to match blockchain config
+      this.configService.get<number>(
+        'MAX_CATCHUP_CHUNK_SIZE',
+        Number(rpcBlockRange),
+      ),
     );
     return dynamicMax && dynamicMax < configMax ? dynamicMax : configMax;
   }
@@ -35,8 +44,17 @@ export class ChunkSizeManagerService {
 
   increaseMaxChunkSize(chainId: SupportedChains): void {
     const currentMax = this.getMaxChunkSize(chainId);
+
+    // Get block range from blockchain config (single source of truth)
+    const blockchainConfig = this.configService.get('blockchain');
+    const chainConfig = blockchainConfig?.chains?.[chainId];
+    const rpcBlockRange = chainConfig?.providers?.[0]?.blockRange || 50n;
+
     const configMax = BigInt(
-      this.configService.get<number>('MAX_CATCHUP_CHUNK_SIZE', 50), // Reduced to 50 to match blockchain config
+      this.configService.get<number>(
+        'MAX_CATCHUP_CHUNK_SIZE',
+        Number(rpcBlockRange),
+      ),
     );
 
     if (currentMax >= configMax) return;
@@ -53,8 +71,16 @@ export class ChunkSizeManagerService {
   }
 
   resetMaxChunkSize(chainId: SupportedChains): void {
+    // Get block range from blockchain config (single source of truth)
+    const blockchainConfig = this.configService.get('blockchain');
+    const chainConfig = blockchainConfig?.chains?.[chainId];
+    const rpcBlockRange = chainConfig?.providers?.[0]?.blockRange || 50n;
+
     const configMax = BigInt(
-      this.configService.get<number>('MAX_CATCHUP_CHUNK_SIZE', 50), // Reduced to 50 to match blockchain config
+      this.configService.get<number>(
+        'MAX_CATCHUP_CHUNK_SIZE',
+        Number(rpcBlockRange),
+      ),
     );
     this.maxChunkSizePerChain.delete(chainId);
     this.logger.log(`⟳ Chunk size reset (chain ${chainId}): ${configMax}`);
@@ -62,19 +88,50 @@ export class ChunkSizeManagerService {
 
   calculateOptimalChunkSize(lag: bigint, chainId?: SupportedChains): bigint {
     const minChunkSize = BigInt(
-      this.configService.get<number>('MIN_CATCHUP_CHUNK_SIZE', 10), // Reduced minimum
+      this.configService.get<number>('MIN_CATCHUP_CHUNK_SIZE', 5), // Minimum 5 blocks for non-real-time
     );
 
     const maxChunkSize = chainId
       ? this.getMaxChunkSize(chainId)
-      : BigInt(this.configService.get<number>('MAX_CATCHUP_CHUNK_SIZE', 50)); // Reduced maximum
+      : BigInt(this.configService.get<number>('MAX_CATCHUP_CHUNK_SIZE', 50)); // Uses blockchain config as default
 
-    // Keep chunk sizes very small for better parallelization
-    if (lag <= 1n) return 1n;
-    if (lag <= 5n) return 2n; // Reduced from 5n
-    if (lag <= 20n) return 5n; // Reduced from 50n
-    if (lag <= 100n) return 10n; // New tier
-    if (lag <= 500n) return 20n; // Reduced from lag/2
-    return maxChunkSize;
+    let result: bigint;
+
+    // Handle edge cases and ensure minimum chunk size
+    if (lag <= 0n) {
+      result = 1n; // If caught up, process 1 block at a time
+    } else if (lag === 1n) {
+      result = 1n;
+    } else if (lag <= 5n) {
+      result = 2n;
+    } else if (lag <= 20n) {
+      result = 5n;
+    } else if (lag <= 50n) {
+      result = 10n;
+    } else if (lag <= 100n) {
+      result = 20n;
+    } else if (lag <= 500n) {
+      result = 50n; // Increased for better performance
+    } else {
+      result = maxChunkSize; // Up to 100 blocks
+    }
+
+    // CRITICAL: Ensure we never return 0 or negative values
+    if (result <= 0n) {
+      console.error(
+        `[CHUNK_ERROR] Calculated chunk size is ${result}, forcing to minimum ${minChunkSize}`,
+      );
+      result = minChunkSize;
+    }
+
+    // For non-real-time situations (lag > 1), ensure minimum chunk size
+    if (lag > 1n && result < minChunkSize) {
+      console.warn(
+        `[CHUNK_WARNING] Chunk size ${result} too small for lag ${lag}, using minimum ${minChunkSize}`,
+      );
+      result = minChunkSize;
+    }
+
+    return result;
   }
 }

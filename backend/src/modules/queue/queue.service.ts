@@ -47,6 +47,7 @@ export interface WalletNotificationJobData {
 export class QueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(QueueService.name);
   private metricsInterval?: NodeJS.Timeout;
+  private lastJobLogTime = 0;
 
   constructor(
     @InjectQueue('block-ranges') private blockRangesQueue: Queue,
@@ -122,17 +123,16 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       },
     );
 
-    this.logger.debug(
-      `[DEBUG] Job added successfully: ${job.id} (${data.fromBlock}-${data.toBlock})`,
-    );
+    // Log every 5 seconds to show continuous progress without spam
+    // const now = Date.now();
+    // const shouldLog = now - this.lastJobLogTime > 5000; // 5 seconds
 
-    // DEBUG: Log queue state after adding job
-    const metrics = await this.getQueueMetrics();
-    this.logger.debug(
-      `[DEBUG] Queue after add - Waiting: ${metrics.blockRanges.waiting}, ` +
-        `Active: ${metrics.blockRanges.active}, ` +
-        `Completed: ${metrics.blockRanges.completed}`,
-    );
+    // if (shouldLog) {
+    //   this.lastJobLogTime = now;
+    //   this.logger.debug(
+    //     `[DEBUG] Job added successfully: ${job.id} (${data.fromBlock}-${data.toBlock})`,
+    //   );
+    // }
 
     return job;
   }
