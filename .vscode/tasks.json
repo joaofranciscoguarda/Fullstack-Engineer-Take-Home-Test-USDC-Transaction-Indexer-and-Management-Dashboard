@@ -70,6 +70,16 @@
 			"label": "backend logs",
 			"type": "shell",
 			"command": "docker compose logs -n 100 -f backend"
+		},
+		{
+			"label": "rebuild frontend",
+			"type": "shell",
+			"command": "docker compose up -d -V --build frontend"
+		},
+		{
+			"label": "rebuild backend",
+			"type": "shell",
+			"command": "docker compose up -d -V --build backend"
 		}
 	]
 }
