@@ -348,3 +348,7 @@ curl http://localhost:8080/api/indexer/queue-metrics \
 4. Add swap space if needed
 
 ---
+
+# Thank you for your time!
+
+# It was fun!
