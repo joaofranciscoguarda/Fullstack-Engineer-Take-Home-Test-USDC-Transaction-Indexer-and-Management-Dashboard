@@ -19,6 +19,12 @@ export class BalanceResponseClass {
 
   @ApiProperty({ example: '1000000', description: 'Formatted balance' })
   formatted: string;
+
+  @ApiProperty({
+    example: '2021-01-01T00:00:00.000Z',
+    description: 'Last updated',
+  })
+  lastUpdated: string;
 }
 
 export class BalanceResponse extends ModelResponse {
@@ -49,6 +55,7 @@ export class BalanceResponseDto {
       balance: '1000000n',
       decimals: 6,
       formatted: '1000000',
+      lastUpdated: '2021-01-01T00:00:00.000Z',
     },
   })
   data: BalanceResponseClass;

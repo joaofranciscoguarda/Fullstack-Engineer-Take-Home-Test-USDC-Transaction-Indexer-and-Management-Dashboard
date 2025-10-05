@@ -38,6 +38,7 @@ import {
 
 @ApiTags('Transfers')
 @Public()
+@ApiProduces('application/json')
 @Controller('api/transfers')
 @UseInterceptors(CacheInterceptor)
 export class TransfersController {
@@ -68,7 +69,6 @@ export class TransfersController {
    * Get transfer history for a specific address (both sent and received)
    */
   @Get('address/:address')
-  @ApiOperation({ summary: 'Get transfer history for a specific address' })
   @ApiParam({
     name: 'address',
     description: 'Wallet address to query transfers for',

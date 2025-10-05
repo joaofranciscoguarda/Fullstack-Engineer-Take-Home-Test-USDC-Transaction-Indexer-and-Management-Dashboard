@@ -9,6 +9,7 @@ import {
 } from './dto/transfers.dto';
 import { Prisma } from '@prisma/client';
 import { SupportedChains } from '@/modules/blockchain';
+import { formatUnits } from 'viem';
 
 @Injectable()
 export class TransfersService {
@@ -211,6 +212,7 @@ export class TransfersService {
       balance: balance.toString(),
       decimals: contractInfo?.decimals || 6, // USDC typically has 6 decimals
       formatted: this.formatBalance(balance, contractInfo?.decimals || 6),
+      lastUpdated: new Date().toISOString(),
     };
   }
 
@@ -218,12 +220,6 @@ export class TransfersService {
    * Format balance with decimals
    */
   private formatBalance(balance: bigint, decimals: number): string {
-    const divisor = BigInt(10 ** decimals);
-    const integerPart = balance / divisor;
-    const fractionalPart = balance % divisor;
-
-    const fractionalString = fractionalPart.toString().padStart(decimals, '0');
-
-    return `${integerPart}.${fractionalString}`;
+    return formatUnits(balance, decimals);
   }
 }

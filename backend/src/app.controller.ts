@@ -6,15 +6,10 @@ export class AppController {
   @Public()
   @Get()
   @Redirect('/api/docs')
-  lashToApiDocs() {}
+  rootToApiDocs() {}
 
   @Public()
   @Get('api')
   @Redirect('/api/docs')
   apiToApiDocs() {}
-
-  @Public()
-  @Get('/*')
-  @Redirect('/api/docs')
-  anyToApiDocs() {}
 }

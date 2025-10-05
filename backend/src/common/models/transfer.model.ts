@@ -103,7 +103,7 @@ export class Transfer
             contract_address: contractAddress.toLowerCase(),
             chain_id: chainId,
             status: 1,
-            is_confirmed: false,
+            is_confirmed: true,
             confirmations: 0,
           }),
         );
