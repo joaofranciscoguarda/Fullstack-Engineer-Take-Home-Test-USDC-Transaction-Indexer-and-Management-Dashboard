@@ -1,0 +1,19 @@
+meta {
+  name: queue-metrics indexer
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{base_url}}/api/indexer/queue-metrics
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{api_key}}
+}
+
+settings {
+  encodeUrl: true
+}

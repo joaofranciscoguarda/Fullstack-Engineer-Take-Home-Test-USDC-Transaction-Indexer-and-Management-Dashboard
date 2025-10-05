@@ -8,7 +8,7 @@ import {
 import { BaseRepository } from '@/database/prisma/repositories/base.repository';
 import { ModelName, OmitData, TypeMapConcreteModelOperations } from '../types';
 import { serialize, deserialize, BigIntPrefix } from '../helpers/bigInt';
-import { ModelResponseList } from '@/common/response/model.response';
+import { ModelResponse } from '@/common/response/model.response';
 import _ from 'lodash';
 
 // Primary key type definitions
@@ -86,7 +86,7 @@ export abstract class BaseModel<
   // Internal properties not enumerable
   protected _repository?: BaseRepository<any, ModelName>;
   protected _originalData?: Partial<TypeInterface>;
-  protected _responseClass?: any;
+  protected _responseClass?: ModelResponse;
 
   constructor(
     data: Partial<TypeInterface>,
@@ -97,6 +97,12 @@ export abstract class BaseModel<
     this.fill(data);
 
     this.setRepository(_repository);
+
+    // Make _originalData property non-enumerable to prevent serialization
+    Object.defineProperty(this, '_originalData', {
+      enumerable: false,
+      writable: true,
+    });
   }
 
   /**
@@ -220,7 +226,7 @@ export abstract class BaseModel<
    * with treatments specific to responses.
    * with treatments specific to responses.
    */
-  toResponse(responseClass?: ModelResponseList) {
+  toResponse(responseClass?: ModelResponse) {
     // Get the response class to use
     const ResponseClass =
       responseClass ||

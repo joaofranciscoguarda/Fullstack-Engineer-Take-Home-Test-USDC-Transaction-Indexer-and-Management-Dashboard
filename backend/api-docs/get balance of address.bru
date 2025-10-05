@@ -1,0 +1,19 @@
+meta {
+  name: get balance of address
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{base_url}}/api/balance/0x3a14ab3a2d3f62fe2c111bfae8cc71e8d0bca6a9
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{api_key}}
+}
+
+settings {
+  encodeUrl: true
+}

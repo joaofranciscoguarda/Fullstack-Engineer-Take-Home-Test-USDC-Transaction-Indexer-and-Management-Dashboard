@@ -86,8 +86,8 @@ export class TransfersRepository extends BaseRepository<Transfer, 'Transfers'> {
   async getTransferByTxHash(
     txHash: string,
     chainId: SupportedChains,
-  ): Promise<Transfer[]> {
-    const results = await this.findMany({
+  ): Promise<Transfer> {
+    const results = await this.findFirst({
       where: {
         tx_hash: txHash,
         chain_id: chainId,
@@ -100,7 +100,7 @@ export class TransfersRepository extends BaseRepository<Transfer, 'Transfers'> {
       },
     });
 
-    return Transfer.hydrateMany<Transfer>(results);
+    return Transfer.hydrate<Transfer>(results);
   }
 
   /**
@@ -116,6 +116,13 @@ export class TransfersRepository extends BaseRepository<Transfer, 'Transfers'> {
     const normalizedContractAddress = contractAddress.toLowerCase();
 
     // Get sum of incoming transfers (received)
+
+    console.log(
+      'incoming',
+      normalizedAddress,
+      chainId,
+      normalizedContractAddress,
+    );
     const incoming = await this.aggregate({
       where: {
         to_address: normalizedAddress,
@@ -129,6 +136,12 @@ export class TransfersRepository extends BaseRepository<Transfer, 'Transfers'> {
     });
 
     // Get sum of outgoing transfers (sent)
+    console.log(
+      'outgoing',
+      normalizedAddress,
+      chainId,
+      normalizedContractAddress,
+    );
     const outgoing = await this.aggregate({
       where: {
         from_address: normalizedAddress,
@@ -140,6 +153,9 @@ export class TransfersRepository extends BaseRepository<Transfer, 'Transfers'> {
         amount: true,
       },
     });
+
+    console.log('incoming', incoming);
+    console.log('outgoing', outgoing);
 
     const incomingAmount = incoming._sum?.amount || BigInt(0);
     const outgoingAmount = outgoing._sum?.amount || BigInt(0);

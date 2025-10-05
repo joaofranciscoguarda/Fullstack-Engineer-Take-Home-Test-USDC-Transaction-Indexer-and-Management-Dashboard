@@ -90,18 +90,12 @@ export class TransfersService {
     // Note: Comparing string amounts is tricky, better to convert to BigInt
     // For now, we'll skip this in the query and filter in memory if needed
 
-    const result = await this.transfersRepo.findTransfers({
+    return await this.transfersRepo.findTransfers({
       skip,
       take: limit,
       where,
       orderBy: { timestamp: 'desc' },
     });
-
-    return {
-      ...result,
-      page,
-      limit,
-    };
   }
 
   /**
@@ -152,34 +146,25 @@ export class TransfersService {
       orderBy: { timestamp: 'desc' },
     });
 
-    return {
-      ...result,
-      address,
-      page,
-      limit,
-    };
+    return result;
   }
 
   /**
    * Get transfer by transaction hash
    */
   async getTransferByTxHash(txHash: string, chainId: SupportedChains) {
-    const transfers = await this.transfersRepo.getTransferByTxHash(
+    const transfer = await this.transfersRepo.getTransferByTxHash(
       txHash,
       chainId,
     );
 
-    if (!transfers || transfers.length === 0) {
+    if (!transfer) {
       throw new NotFoundException(
         `Transfer not found for tx hash ${txHash} on chain ${chainId}`,
       );
     }
 
-    return {
-      txHash,
-      chainId,
-      transfers,
-    };
+    return transfer;
   }
 
   /**
@@ -187,7 +172,7 @@ export class TransfersService {
    */
   async getBalance(
     address: string,
-    chainId: SupportedChains,
+    chainId: SupportedChains = 1,
     contractAddress?: string,
   ) {
     // If no contract address provided, get default USDC for the chain
@@ -207,7 +192,6 @@ export class TransfersService {
 
       contract = usdcContract.address;
     }
-
     const balance = await this.transfersRepo.calculateBalance(
       address.toLowerCase(),
       chainId,

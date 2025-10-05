@@ -10,6 +10,7 @@ import { TransfersModule } from '@/modules/transfers';
 import { IndexerManagementModule } from '@/modules/indexer-management';
 import { ContractsModule } from '@/modules/contracts';
 import { UsersModule } from '@/modules/users';
+import { CacheModule } from '@/modules/cache';
 import { ApiKeyGuard } from '@/common/guards/api-key.guard';
 
 // Config imports
@@ -34,6 +35,7 @@ import staticConfig from '@/config/static.config';
     IndexerManagementModule,
     ContractsModule,
     UsersModule,
+    CacheModule,
   ],
   controllers: [],
   providers: [

@@ -11,6 +11,7 @@ import {
 } from '@/database/prisma/repositories';
 import { QueueService } from '@/modules/queue';
 import { BlockchainService } from '@/modules/blockchain';
+import { CacheService } from '@/modules/cache';
 import {
   StartIndexerDto,
   ResetIndexerDto,
@@ -28,6 +29,7 @@ export class IndexerManagementService {
     private readonly reorgsRepo: ReorgsRepository,
     private readonly queueService: QueueService,
     private readonly blockchainService: BlockchainService,
+    private readonly cacheService: CacheService,
   ) {}
 
   /**
@@ -245,6 +247,14 @@ export class IndexerManagementService {
   async addCatchUpJob(dto: CatchUpIndexerDto) {
     const { chainId, contractAddress, fromBlock, toBlock } = dto;
 
+    const cacheKey = `catchup:${chainId}:${contractAddress}:${fromBlock}:${toBlock}`;
+
+    if (await this.cacheService.exists(cacheKey)) {
+      throw new BadRequestException(
+        `Catch-up job already exists for range ${fromBlock}-${toBlock}. Please wait before requesting again.`,
+      );
+    }
+
     // Validate block range (max 2k blocks)
     const blockRange = toBlock - fromBlock;
     if (blockRange > 2000) {
@@ -304,6 +314,8 @@ export class IndexerManagementService {
       BigInt(toBlock),
     );
 
+    await this.cacheService.set(cacheKey, 'processing', 3000);
+
     this.logger.log(
       `Triggered catch-up via coordinator: ${fromBlock}-${toBlock} for chain ${chainId}, contract ${contractAddress}`,
     );
@@ -319,7 +331,10 @@ export class IndexerManagementService {
         currentBlock: Number(currentBlock),
         status: 'triggered',
       },
-      info: 'The coordinator will handle chunking and queue management with proper RPC limit handling.',
+      info: `The coordinator will handle chunking and queue management with proper RPC limit handling.
+      Note: The coordinator for this process will not log any message, it will be running in the background.
+      Database will be updated with the transfers in the background.
+      `,
     };
   }
 }

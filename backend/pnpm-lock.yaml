@@ -50,6 +50,9 @@ importers:
       ethers:
         specifier: ^6.15.0
         version: 6.15.0
+      ioredis:
+        specifier: ^5.8.0
+        version: 5.8.0
       lodash:
         specifier: ^4.17.21
         version: 4.17.21

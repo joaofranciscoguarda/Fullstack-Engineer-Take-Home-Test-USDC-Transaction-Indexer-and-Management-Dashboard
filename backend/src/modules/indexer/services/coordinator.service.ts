@@ -234,14 +234,22 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
 
     const interval = setInterval(async () => {
       try {
-        await this.processNewBlocks(chainId, contractAddress);
+        // Use setImmediate to ensure non-blocking execution
+        setImmediate(async () => {
+          await this.processNewBlocks(chainId, contractAddress);
+        });
       } catch (error) {
         await this.errorHandler.handleError(error, chainId, contractAddress);
       }
     }, basePollingInterval);
 
-    this.processNewBlocks(chainId, contractAddress).catch((error) => {
-      this.logger.error('Initial block processing error', error);
+    // Initial processing also non-blocking
+    setImmediate(async () => {
+      try {
+        await this.processNewBlocks(chainId, contractAddress);
+      } catch (error) {
+        this.logger.error('Initial block processing error', error);
+      }
     });
 
     return interval;
@@ -265,6 +273,15 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
 
     // Check circuit breaker
     if (this.errorHandler.checkCircuitBreaker()) {
+      return;
+    }
+
+    // Check if there are pending catch-up jobs - if so, skip real-time processing
+    const queueMetrics = await this.queueService.getQueueMetrics();
+    if (queueMetrics.catchup.waiting > 0 || queueMetrics.catchup.active > 0) {
+      this.logger.debug(
+        `[DEBUG] Coordinator: Skipping real-time processing - catch-up jobs pending (waiting: ${queueMetrics.catchup.waiting}, active: ${queueMetrics.catchup.active})`,
+      );
       return;
     }
 
@@ -309,8 +326,6 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       optimalChunkSize = 1n;
     }
 
-    // Get queue metrics and worker info
-    const queueMetrics = await this.queueService.getQueueMetrics();
     const hasPendingBlockRanges =
       queueMetrics.blockRanges.waiting > 0 ||
       queueMetrics.blockRanges.active > 0;
@@ -398,6 +413,9 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
         state.last_processed_block,
       );
     }
+
+    // Yield control to event loop to allow catch-up jobs to be processed
+    await new Promise((resolve) => setImmediate(resolve));
   }
 
   async triggerCatchUp(
@@ -592,6 +610,11 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       );
 
       currentBlock = jobToBlock + 1n;
+
+      // Yield control to event loop every few jobs to allow catch-up processing
+      if (i % 2 === 0) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
     }
 
     // If there are remaining blocks, create one more job
