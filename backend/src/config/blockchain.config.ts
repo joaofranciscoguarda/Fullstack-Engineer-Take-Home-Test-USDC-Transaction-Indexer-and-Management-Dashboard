@@ -46,9 +46,9 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
           {
             name: 'Default Mainnet RPC',
             transport: mainnet.rpcUrls.default.http[0], // Use Viem's default RPC
-            blockRange: 50n, // Very conservative for USDC-heavy blocks
-            timeout: 15000,
-            retryAttempts: 3,
+            blockRange: 50n, // Aligned with chunk size manager
+            timeout: 30000, // Increased timeout
+            retryAttempts: 5, // More retries
           },
           // Additional RPC providers (optional, will be filtered if not configured)
           ...(process.env['1_1_TRANSPORT']
@@ -56,9 +56,9 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
                 {
                   name: '1 Mainnet',
                   transport: process.env['1_1_TRANSPORT'],
-                  blockRange: 1000n,
-                  timeout: 15000,
-                  retryAttempts: 3,
+                  blockRange: 50n, // Aligned with chunk size manager
+                  timeout: 30000,
+                  retryAttempts: 5,
                 },
               ]
             : []),
@@ -67,9 +67,9 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
                 {
                   name: '2 Mainnet',
                   transport: process.env['1_2_TRANSPORT'],
-                  blockRange: 1000n,
-                  timeout: 15000,
-                  retryAttempts: 3,
+                  blockRange: 50n, // Aligned with chunk size manager
+                  timeout: 30000,
+                  retryAttempts: 5,
                 },
               ]
             : []),
@@ -78,9 +78,9 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
                 {
                   name: '3 Mainnet',
                   transport: process.env['1_3_TRANSPORT'],
-                  blockRange: 1000n,
-                  timeout: 15000,
-                  retryAttempts: 3,
+                  blockRange: 50n, // Aligned with chunk size manager
+                  timeout: 30000,
+                  retryAttempts: 5,
                 },
               ]
             : []),
@@ -89,9 +89,9 @@ export default registerAs('blockchain', (): BlockchainConfigInterface => {
                 {
                   name: '4 Mainnet',
                   transport: process.env['1_4_TRANSPORT'],
-                  blockRange: 1000n,
-                  timeout: 15000,
-                  retryAttempts: 3,
+                  blockRange: 50n, // Aligned with chunk size manager
+                  timeout: 30000,
+                  retryAttempts: 5,
                 },
               ]
             : []),

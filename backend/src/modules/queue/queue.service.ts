@@ -92,6 +92,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       retryCount?: number;
       attempts?: number;
       backoff?: { type: string; delay: number };
+      jobId?: string;
     },
   ): Promise<Job<BlockRangeJobData>> {
     // Reduced logging to avoid spam
@@ -117,9 +118,22 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
           type: 'exponential',
           delay: 2000,
         },
-        // Remove jobId to allow BullMQ to generate unique IDs
+        jobId: options?.jobId, // Use provided jobId for deduplication
       },
     );
+
+    this.logger.debug(
+      `[DEBUG] Job added successfully: ${job.id} (${data.fromBlock}-${data.toBlock})`,
+    );
+
+    // DEBUG: Log queue state after adding job
+    const metrics = await this.getQueueMetrics();
+    this.logger.debug(
+      `[DEBUG] Queue after add - Waiting: ${metrics.blockRanges.waiting}, ` +
+        `Active: ${metrics.blockRanges.active}, ` +
+        `Completed: ${metrics.blockRanges.completed}`,
+    );
+
     return job;
   }
 

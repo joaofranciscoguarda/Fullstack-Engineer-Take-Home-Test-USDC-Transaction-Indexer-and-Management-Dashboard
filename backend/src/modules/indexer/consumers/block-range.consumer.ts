@@ -14,9 +14,9 @@ import { CoordinatorService } from '../services/coordinator.service';
 
 /** Processes block range jobs and fetches Transfer events */
 @Processor('block-ranges', {
-  concurrency: 2,
-  stalledInterval: 30000, // Check for stalled jobs every 30s
-  maxStalledCount: 1, // Move to failed after 1 stall
+  concurrency: 1, // Reduced to 1 to avoid overwhelming RPC providers
+  stalledInterval: 60000, // Check for stalled jobs every 60s
+  maxStalledCount: 2, // More tolerance for rate limiting
 })
 export class BlockRangeConsumer extends WorkerHost {
   private readonly logger = new Logger(BlockRangeConsumer.name);
@@ -41,6 +41,9 @@ export class BlockRangeConsumer extends WorkerHost {
     const to = typeof toBlock === 'string' ? BigInt(toBlock) : toBlock;
 
     try {
+      // Add small delay to prevent rate limiting
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       const transfers = await this.fetchTransferEvents(
         chainId,
         contractAddress,
@@ -49,19 +52,38 @@ export class BlockRangeConsumer extends WorkerHost {
       );
 
       if (transfers.length > 0) {
+        this.logger.debug(
+          `[DEBUG] Job ${job.id}: Starting database save for ${transfers.length} transfers`,
+        );
+        const startTime = Date.now();
+
         const saved = await this.transfersRepo.bulkUpsert(transfers);
+
+        const saveTime = Date.now() - startTime;
         this.logger.log(
-          `✓ Saved ${saved.length} transfers (blocks ${from}-${to})`,
+          `✓ Saved ${saved.length} transfers (blocks ${from}-${to}) - contract ${contractAddress} - chain ${chainId} in ${saveTime}ms`,
+        );
+        this.logger.debug(
+          `[DEBUG] Job ${job.id}: Database save completed in ${saveTime}ms`,
+        );
+      } else {
+        this.logger.debug(
+          `[DEBUG] Job ${job.id}: No transfers found, skipping database save`,
         );
       }
 
+      this.logger.debug(
+        `[DEBUG] Job ${job.id}: Updating indexer state to block ${to}`,
+      );
       await this.indexerStateRepo.updateLastProcessedBlock(
         chainId,
         contractAddress,
         to,
         transfers.length,
       );
+
       await job.updateProgress(100);
+      this.logger.debug(`[DEBUG] Job ${job.id}: Job completed successfully`);
 
       const blockCount = Number(to - from + 1n);
       if (blockCount > 100) {

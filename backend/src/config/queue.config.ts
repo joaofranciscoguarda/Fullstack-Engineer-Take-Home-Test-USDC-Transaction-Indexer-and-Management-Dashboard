@@ -53,7 +53,7 @@ export default registerAs('queue', (): QueueConfigInterface => {
       port: parseInt(getEnvVar('REDIS_PORT', '6379'), 10),
       password: process.env.REDIS_PASSWORD,
       db: parseInt(getEnvVar('REDIS_DB', '0'), 10),
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: undefined, // BullMQ requires this to be null
     },
     defaultJobOptions: {
       attempts: 5,

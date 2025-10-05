@@ -59,7 +59,7 @@ export class ContractsRepository extends BaseRepository<Contract, 'Contracts'> {
       where: {
         address: address.toLowerCase(),
         chains: {
-          has: chainId,
+          hasSome: [chainId],
         },
       },
     });

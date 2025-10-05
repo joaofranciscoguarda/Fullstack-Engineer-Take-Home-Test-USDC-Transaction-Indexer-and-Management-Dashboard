@@ -21,12 +21,32 @@ export class TransfersRepository extends BaseRepository<Transfer, 'Transfers'> {
     const batchSize = 100;
     const results: Transfer[] = [];
 
+    // Log top 3 transfers for debugging duplicate detection
+    if (transfers.length > 0) {
+      const topTransfers = transfers.slice(0, 3).map((t) => ({
+        txHash: t.tx_hash,
+        logIndex: t.log_index,
+        fromAddress: t.from_address,
+        toAddress: t.to_address,
+        amount: t.amount.toString(),
+        blockNumber: t.block_number.toString(),
+      }));
+
+      console.log(
+        `[BULK_UPSERT] Processing ${transfers.length} transfers. Top 3:`,
+        JSON.stringify(topTransfers, null, 2),
+      );
+    }
+
     for (let i = 0; i < transfers.length; i += batchSize) {
       const batch = transfers.slice(i, i + batchSize);
       const batchResults = await this.upsertMany(batch);
       results.push(...batchResults);
     }
 
+    console.log(
+      `[BULK_UPSERT] Completed: ${results.length} transfers processed from ${transfers.length} input transfers`,
+    );
     return results;
   }
 

@@ -28,6 +28,8 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
   private activeIndexers: Map<string, NodeJS.Timeout> = new Map();
   private isLeader = false;
   private leaderCheckInterval?: NodeJS.Timeout;
+  private pendingJobs: Set<string> = new Set(); // Track pending jobs to prevent duplicates
+  private workerCount = 1; // Default worker count, will be updated from queue metrics
 
   constructor(
     private readonly indexerStateRepo: IndexerStateRepository,
@@ -185,9 +187,9 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
     chainId: SupportedChains,
     contractAddress: string,
   ): NodeJS.Timeout {
-    const pollingInterval = this.configService.get<number>(
+    const basePollingInterval = this.configService.get<number>(
       'INDEXER_POLLING_INTERVAL',
-      5000,
+      10000, // Increased to 10s to reduce RPC pressure
     );
 
     const interval = setInterval(async () => {
@@ -196,7 +198,7 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       } catch (error) {
         await this.errorHandler.handleError(error, chainId, contractAddress);
       }
-    }, pollingInterval);
+    }, basePollingInterval);
 
     this.processNewBlocks(chainId, contractAddress).catch((error) => {
       this.logger.error('Initial block processing error', error);
@@ -214,7 +216,12 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       contractAddress,
     );
 
-    if (!state || state.status !== 'running') return;
+    if (!state || state.status !== 'running') {
+      this.logger.debug(
+        `[DEBUG] Coordinator: Indexer not running (status: ${state?.status})`,
+      );
+      return;
+    }
 
     // Check circuit breaker
     if (this.errorHandler.checkCircuitBreaker()) {
@@ -245,17 +252,49 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       this.configService.get<number>('CATCHUP_THRESHOLD', 50),
     );
 
+    // Smart interval: when very close to current block, wait for block time
+    const nearCurrentThreshold = 3n; // Within 3 blocks of current
+    const ethereumBlockTime = 12000; // ~12 seconds per block
+
     const optimalChunkSize = this.chunkSizeManager.calculateOptimalChunkSize(
       lag,
       chainId,
     );
 
-    // Check if there are pending jobs before triggering new catch-up
-    const pendingJobs = await this.queueService.getQueueMetrics();
+    // Get queue metrics and worker info
+    const queueMetrics = await this.queueService.getQueueMetrics();
     const hasPendingBlockRanges =
-      pendingJobs.blockRanges.waiting > 0 || pendingJobs.blockRanges.active > 0;
+      queueMetrics.blockRanges.waiting > 0 ||
+      queueMetrics.blockRanges.active > 0;
+
+    // Update worker count based on active jobs
+    this.workerCount = Math.max(1, queueMetrics.blockRanges.active);
+
+    // Don't create new jobs if there are too many pending relative to workers
+    const maxPendingPerWorker = 3; // Max 3 jobs per worker
+    const tooManyPendingJobs =
+      queueMetrics.blockRanges.waiting > this.workerCount * maxPendingPerWorker;
+
+    // DEBUG: Log queue state
+    this.logger.debug(
+      `[DEBUG] Queue State - Waiting: ${queueMetrics.blockRanges.waiting}, ` +
+        `Active: ${queueMetrics.blockRanges.active}, ` +
+        `Completed: ${queueMetrics.blockRanges.completed}, ` +
+        `Failed: ${queueMetrics.blockRanges.failed}, ` +
+        `Workers: ${this.workerCount}`,
+    );
 
     if (lag <= realTimeThreshold) {
+      this.logger.debug(`[DEBUG] Mode: Real-time`);
+
+      // When very close to current block, wait for block time to avoid spam
+      if (lag <= nearCurrentThreshold) {
+        this.logger.debug(
+          `[DEBUG] Near current block (${lag}), waiting ${ethereumBlockTime}ms`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, ethereumBlockTime));
+      }
+
       await this.processBlockRange(
         chainId,
         contractAddress,
@@ -278,6 +317,15 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
       );
       return;
     } else {
+      // Don't create new jobs if there are too many pending
+      if (tooManyPendingJobs) {
+        this.logger.debug(
+          `[DEBUG] Too many pending jobs (${queueMetrics.blockRanges.waiting}) for ${this.workerCount} workers, skipping`,
+        );
+        return;
+      }
+
+      this.logger.debug(`[DEBUG] Mode: Batch (chunk: ${optimalChunkSize})`);
       const nextBlock = state.last_processed_block + 1n;
       const toBlock =
         nextBlock + optimalChunkSize < currentBlock
@@ -419,23 +467,42 @@ export class CoordinatorService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     if (fromBlock > toBlock) return;
 
-    // Delegate reorg checking to ReorgDetectionService
-    await this.reorgDetectionService.checkForReorg(chainId, fromBlock - 1n);
+    // Create unique job identifier to prevent duplicates
+    const jobId = `${chainId}-${contractAddress}-${fromBlock}-${toBlock}`;
 
-    await this.queueService.addBlockRangeJob(
-      { chainId, contractAddress, fromBlock, toBlock },
-      { priority },
-    );
+    // Check if this job is already pending
+    if (this.pendingJobs.has(jobId)) {
+      this.logger.debug(
+        `[DEBUG] Job already pending: ${jobId}, skipping duplicate creation`,
+      );
+      return;
+    }
 
-    const blockCount = Number(toBlock - fromBlock + 1n);
-    if (Number(fromBlock) % 100 === 0) {
-      if (blockCount === 1) {
-        this.logger.log(`${mode}: block ${fromBlock}`);
-      } else {
-        this.logger.log(
-          `${mode}: blocks ${fromBlock}-${toBlock} (${blockCount})`,
-        );
-      }
+    // Mark job as pending
+    this.pendingJobs.add(jobId);
+
+    try {
+      // Delegate reorg checking to ReorgDetectionService
+      await this.reorgDetectionService.checkForReorg(chainId, fromBlock - 1n);
+
+      await this.queueService.addBlockRangeJob(
+        { chainId, contractAddress, fromBlock, toBlock },
+        { priority, jobId },
+      );
+
+      const blockCount = Number(toBlock - fromBlock + 1n);
+      this.logger.debug(
+        `[DEBUG] ${mode}: Created job ${jobId} for blocks ${fromBlock}-${toBlock} (${blockCount} blocks)`,
+      );
+
+      // Clean up pending job after a delay to allow for processing
+      setTimeout(() => {
+        this.pendingJobs.delete(jobId);
+      }, 30000); // Remove after 30 seconds
+    } catch (error) {
+      // Remove from pending if job creation failed
+      this.pendingJobs.delete(jobId);
+      throw error;
     }
   }
 }
