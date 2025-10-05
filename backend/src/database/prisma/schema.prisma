@@ -10,8 +10,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// "postgresql://template_user:template_password@localhost:5432/template_db"
-
 model Users {
   id      String @id @default(uuid(7)) @db.Uuid
   api_key String @unique @db.VarChar(255)

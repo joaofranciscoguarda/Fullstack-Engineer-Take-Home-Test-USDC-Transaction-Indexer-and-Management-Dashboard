@@ -208,3 +208,39 @@ export class GetBalanceQueryDto {
   @IsString()
   contractAddress?: string;
 }
+
+export class GetBalanceHistoryQueryDto {
+  @ApiProperty({
+    required: false,
+    default: 1000,
+    minimum: 1,
+    maximum: 1000,
+    description: 'Maximum number of data points to return (default: 1000)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit?: number = 1000;
+
+  @ApiProperty({ required: false, description: 'Wallet address' })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiProperty({
+    required: false,
+    enum: SUPPORTED_VIEM_CHAINS.map((chain) => chain.id),
+    description: 'Filter by chain ID',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsIn(SUPPORTED_VIEM_CHAINS.map((chain) => chain.id))
+  chainId?: SupportedChains;
+
+  @ApiProperty({ required: false, description: 'USDC contract address' })
+  @IsOptional()
+  @IsString()
+  contractAddress?: string;
+}

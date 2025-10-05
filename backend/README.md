@@ -166,11 +166,11 @@ The blockchain service automatically handles RPC provider failures and switching
 # =================================================================
 # DATABASE CONFIGURATION
 # =================================================================
-DB_DATABASE=template_db
-DB_USERNAME=template_user
-DB_PASSWORD=template_password
+DB_DATABASE=indexer_db
+DB_USERNAME=indexer_user
+DB_PASSWORD=indexer_password
 DB_ROOT_PASSWORD=root_password
-DATABASE_URL="postgresql://template_user:template_password@postgres:5432/template_db"
+DATABASE_URL="postgresql://indexer_user:indexer_password@postgres:5432/indexer_db"
 
 # =================================================================
 # REDIS CONFIGURATION

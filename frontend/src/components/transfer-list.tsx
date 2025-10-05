@@ -79,7 +79,7 @@ export function TransferList({
 					)}
 				</div>
 			</CardHeader>
-			<CardContent className="space-y-3">
+			<CardContent className="space-y-3 px-4 md:px-6">
 				{transfers ? (
 					transfers.map((transfer) => {
 						const isOutgoing =
@@ -95,7 +95,7 @@ export function TransferList({
 								className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
 								{/* Icon */}
 								<div
-									className={`p-2 rounded-full ${
+									className={`p-2 rounded-full hidden md:block ${
 										isOutgoing
 											? "bg-red-100 dark:bg-red-900/20"
 											: "bg-green-100 dark:bg-green-900/20"

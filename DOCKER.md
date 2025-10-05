@@ -69,7 +69,7 @@ docker-compose exec backend sh
 docker-compose exec frontend sh
 
 # Access PostgreSQL
-docker-compose exec postgres psql -U template_user -d template_db
+docker-compose exec postgres psql -U indexer_user -d indexer_db
 
 # Access Redis CLI
 docker-compose exec redis redis-cli

@@ -5,7 +5,7 @@ import path from 'path';
 // Override DATABASE_URL for local development if not in Docker
 // if (process.env.NODE_ENV !== 'production' && !process.env.DOCKER_ENV) {
 //   process.env.DATABASE_URL =
-//     'postgresql://template_user:template_password@localhost:5432/template_db';
+//     'postgresql://indexer_user:indexer_password@localhost:5432/indexer_db';
 // }
 
 export default defineConfig({

@@ -217,6 +217,102 @@ export class TransfersService {
   }
 
   /**
+   * Get balance history for an address (optimized for charting)
+   */
+  async getBalanceHistory(
+    address: string,
+    chainId: SupportedChains = 1,
+    contractAddress?: string,
+    limit: number = 1000,
+  ) {
+    // If no contract address provided, get default USDC for the chain
+    let contract = contractAddress;
+    if (!contract) {
+      const contracts =
+        await this.contractsRepo.getActiveContractsByChain(chainId);
+      const usdcContract = contracts.find(
+        (c) => c.symbol.toUpperCase() === 'USDC',
+      );
+
+      if (!usdcContract) {
+        throw new NotFoundException(
+          `No USDC contract found for chain ${chainId}`,
+        );
+      }
+
+      contract = usdcContract.address;
+    }
+
+    // Get contract info for decimals
+    const contractInfo = await this.contractsRepo.getContractByAddressAndChain(
+      contract,
+      chainId,
+    );
+    const decimals = contractInfo?.decimals || 6;
+
+    // Get up to 'limit' most recent transfers for this address
+    const where: Prisma.TransfersWhereInput = {
+      chain_id: chainId,
+      contract_address: contract.toLowerCase(),
+      OR: [
+        { from_address: address.toLowerCase() },
+        { to_address: address.toLowerCase() },
+      ],
+    };
+
+    const transfers = await this.transfersRepo.findMany({
+      where,
+      orderBy: { timestamp: 'asc' }, // Oldest first for balance calculation
+      take: limit,
+    });
+
+    // Calculate balance at each point
+    const history: Array<{
+      timestamp: Date;
+      block_number: bigint;
+      balance: bigint;
+      balance_formatted: string;
+      tx_hash: string;
+      direction: 'incoming' | 'outgoing';
+      amount: bigint;
+    }> = [];
+
+    let currentBalance = BigInt(0);
+
+    for (const transfer of transfers) {
+      const isIncoming =
+        transfer.to_address.toLowerCase() === address.toLowerCase();
+
+      // Update balance
+      if (isIncoming) {
+        currentBalance += transfer.amount;
+      } else {
+        currentBalance -= transfer.amount;
+      }
+
+      history.push({
+        timestamp: transfer.timestamp,
+        block_number: transfer.block_number,
+        balance: currentBalance,
+        balance_formatted: this.formatBalance(currentBalance, decimals),
+        tx_hash: transfer.tx_hash,
+        direction: isIncoming ? 'incoming' : 'outgoing',
+        amount: transfer.amount,
+      });
+    }
+
+    return {
+      address,
+      current_balance: currentBalance,
+      current_balance_formatted: this.formatBalance(currentBalance, decimals),
+      chain_id: chainId,
+      contract_address: contract,
+      data_points: history.length,
+      history,
+    };
+  }
+
+  /**
    * Format balance with decimals
    */
   private formatBalance(balance: bigint, decimals: number): string {

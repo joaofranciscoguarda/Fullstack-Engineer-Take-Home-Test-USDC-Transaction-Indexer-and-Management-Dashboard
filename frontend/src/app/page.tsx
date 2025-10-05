@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { WalletSearch } from "@/components/wallet-search";
 import { WalletBalance } from "@/components/wallet-balance";
+import { BalanceChart } from "@/components/balance-chart";
 import { TransferList } from "@/components/transfer-list";
 import { TransactionDetails } from "@/components/transaction-details";
 import {
@@ -147,6 +148,7 @@ export default function Home() {
 							isLoading={isLoadingBalance}
 							address={searchValue}
 						/>
+						<BalanceChart walletAddress={searchValue} chainId={1} />
 						<TransferList
 							transfers={transfers?.data || []}
 							isLoading={isLoadingTransfers}

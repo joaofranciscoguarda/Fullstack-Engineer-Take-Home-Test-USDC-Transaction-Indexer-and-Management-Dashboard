@@ -23,6 +23,7 @@ import {
   GetTransfersByAddressQueryDto,
   GetBalanceParamsDto,
   GetBalanceQueryDto,
+  GetBalanceHistoryQueryDto,
 } from './dto/transfers.dto';
 import { type SupportedChains } from '@/modules/blockchain';
 import {
@@ -35,6 +36,10 @@ import {
   BalanceResponse,
   BalanceResponseDto,
 } from '@/common/response/balance.response';
+import {
+  BalanceHistoryResponse,
+  BalanceHistoryResponseDto,
+} from '@/common/response/balance-history.response';
 
 @ApiTags('Transfers')
 @Public()
@@ -172,5 +177,54 @@ export class BalanceController {
     );
 
     return new BalanceResponse(result);
+  }
+
+  /**
+   * GET /api/balance/:address/history
+   * Get balance history for an address (optimized for charting)
+   */
+  @Public()
+  @Get(':address/history')
+  @ApiOperation({
+    summary: 'Get balance history for an address (for charting)',
+  })
+  @ApiParam({
+    name: 'address',
+    description: 'Wallet address to get balance history for',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Maximum number of data points (default: 1000)',
+  })
+  @ApiQuery({
+    name: 'chainId',
+    required: false,
+    description: 'Chain ID (defaults to mainnet)',
+  })
+  @ApiQuery({
+    name: 'contractAddress',
+    required: false,
+    description: 'USDC contract address',
+  })
+  @ApiOkResponse({
+    description: 'Balance history retrieved successfully',
+    type: BalanceHistoryResponseDto,
+  })
+  @Cacheable(300, 'get-balance-history') // Cache for 5 minutes
+  async getBalanceHistory(
+    @Param() params: GetBalanceParamsDto,
+    @Query() query: GetBalanceHistoryQueryDto,
+  ) {
+    this.logger.log(`GET /api/balance/${params.address}/history`, query);
+
+    const result = await this.transfersService.getBalanceHistory(
+      params.address,
+      query.chainId || 1,
+      query.contractAddress,
+      query.limit || 1000,
+    );
+
+    return new BalanceHistoryResponse(result);
   }
 }

@@ -74,7 +74,7 @@
 		{
 			"label": "rebuild frontend",
 			"type": "shell",
-			"command": "docker compose up -d -V --build frontend"
+			"command": "docker compose up -d --build frontend"
 		},
 		{
 			"label": "rebuild backend",

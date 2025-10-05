@@ -140,6 +140,27 @@ export const api = {
 		const query = params.toString() ? `?${params.toString()}` : "";
 		return fetchApi<TransferListResponse>(`/api/transfers${query}`);
 	},
+
+	// Get balance history for charting (optimized endpoint)
+	getBalanceHistory: async (
+		address: string,
+		options?: {
+			limit?: number;
+			chainId?: number;
+			contractAddress?: string;
+		}
+	) => {
+		const params = new URLSearchParams();
+		if (options?.limit) params.append("limit", options.limit.toString());
+		if (options?.chainId) params.append("chainId", options.chainId.toString());
+		if (options?.contractAddress)
+			params.append("contractAddress", options.contractAddress);
+
+		const query = params.toString() ? `?${params.toString()}` : "";
+		return fetchApi<BalanceHistoryResponse>(
+			`/api/balance/${address}/history${query}`
+		);
+	},
 };
 
 // Type definitions based on backend response structures
@@ -147,17 +168,17 @@ export interface Transfer {
 	id: string;
 	tx_hash: string;
 	log_index: number;
-	block_number: bigint;
+	block_number: string;
 	block_hash: string;
 	timestamp: Date;
 	from_address: string;
 	to_address: string;
-	amount: bigint;
+	amount: string;
 	contract_id: string;
 	contract_address: string;
 	chain_id: number;
-	gas_price?: bigint | null;
-	gas_used?: bigint | null;
+	gas_price?: string | null;
+	gas_used?: string | null;
 	status: number;
 	is_confirmed: boolean;
 	confirmations: number;
@@ -195,4 +216,28 @@ export interface BalanceResponse {
 		formatted: string;
 		lastUpdated: string;
 	};
+}
+
+export interface BalanceHistoryDataPoint {
+	timestamp: string;
+	block_number: string;
+	balance: string;
+	balance_formatted: string;
+	tx_hash: string;
+	direction: "incoming" | "outgoing";
+	amount: string;
+}
+
+export interface BalanceHistoryResponse {
+	success: boolean;
+	data: {
+		address: string;
+		current_balance: string;
+		current_balance_formatted: string;
+		chain_id: number;
+		contract_address: string;
+		data_points: number;
+		history: BalanceHistoryDataPoint[];
+	};
+	timestamp: string;
 }
