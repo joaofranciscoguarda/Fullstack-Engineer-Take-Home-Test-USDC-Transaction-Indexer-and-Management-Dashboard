@@ -1,103 +1,197 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { WalletSearch } from "@/components/wallet-search";
+import { WalletBalance } from "@/components/wallet-balance";
+import { TransferList } from "@/components/transfer-list";
+import { TransactionDetails } from "@/components/transaction-details";
+import {
+	api,
+	type BalanceResponse,
+	type TransferListResponse,
+	type Transfer,
+} from "@/lib/api";
+import { Search } from "lucide-react";
+
+type ViewMode = "idle" | "wallet" | "transaction";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+	const [viewMode, setViewMode] = useState<ViewMode>("idle");
+	const [searchValue, setSearchValue] = useState("");
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+	// Wallet state
+	const [balance, setBalance] = useState<BalanceResponse | null>(null);
+	const [transfers, setTransfers] = useState<TransferListResponse | null>(null);
+	const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+	const [isLoadingTransfers, setIsLoadingTransfers] = useState(false);
+	const [currentPage, setCurrentPage] = useState(1);
+
+	// Transaction state
+	const [transaction, setTransaction] = useState<Transfer | null>(null);
+	const [isLoadingTransaction, setIsLoadingTransaction] = useState(false);
+
+	// Error state
+	const [error, setError] = useState("");
+
+	const loadWalletData = async (address: string, page: number = 1) => {
+		setError("");
+		setSearchValue(address);
+		setViewMode("wallet");
+
+		// Load balance
+		setIsLoadingBalance(true);
+		try {
+			const balanceData = await api.getBalance(address);
+			setBalance(balanceData);
+		} catch (err) {
+			console.error("Error fetching balance:", err);
+			setError("Failed to fetch balance. Please try again.");
+			setBalance(null);
+		} finally {
+			setIsLoadingBalance(false);
+		}
+
+		// Load transfers
+		setIsLoadingTransfers(true);
+		try {
+			const transfersData = await api.getTransfersByAddress(address, {
+				page,
+				limit: 50,
+			});
+			setTransfers(transfersData);
+			setCurrentPage(page);
+		} catch (err) {
+			console.error("Error fetching transfers:", err);
+			setError("Failed to fetch transfers. Please try again.");
+			setTransfers(null);
+		} finally {
+			setIsLoadingTransfers(false);
+		}
+	};
+
+	const loadTransactionData = async (txHash: string) => {
+		setError("");
+		setSearchValue(txHash);
+		setViewMode("transaction");
+
+		setIsLoadingTransaction(true);
+		try {
+			const txData = await api.getTransferByTxHash(txHash);
+			setTransaction(txData.data);
+		} catch (err) {
+			console.error("Error fetching transaction:", err);
+			setError("Failed to fetch transaction. Please try again.");
+			setTransaction(null);
+		} finally {
+			setIsLoadingTransaction(false);
+		}
+	};
+
+	const handleSearch = (value: string, type: "address" | "txHash") => {
+		if (type === "address") {
+			loadWalletData(value, 1);
+		} else {
+			loadTransactionData(value);
+		}
+	};
+
+	const handlePageChange = (page: number) => {
+		if (viewMode === "wallet" && searchValue) {
+			loadWalletData(searchValue, page);
+		}
+	};
+
+	const isLoading =
+		isLoadingBalance || isLoadingTransfers || isLoadingTransaction;
+
+	return (
+		<div className="min-h-screen bg-background">
+			{/* Header */}
+			<header className="border-b">
+				<div className="container mx-auto px-4 py-4">
+					<div className="flex items-center gap-2">
+						<Search className="h-6 w-6" />
+						<h1 className="text-2xl font-bold">Indexer Search</h1>
+					</div>
+				</div>
+			</header>
+
+			{/* Main Content */}
+			<main className="container mx-auto px-4 py-6 space-y-6">
+				{/* Search Section */}
+				<div className="max-w-3xl mx-auto">
+					<div className="space-y-2 mb-4">
+						<h2 className="text-xl font-semibold">Search</h2>
+						<p className="text-sm text-muted-foreground">
+							Enter an Ethereum address to view wallet info or a transaction
+							hash to view transaction details
+						</p>
+					</div>
+					<WalletSearch onSearch={handleSearch} isLoading={isLoading} />
+				</div>
+
+				{/* Error Message */}
+				{error && (
+					<div className="max-w-3xl mx-auto">
+						<div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+							<p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+						</div>
+					</div>
+				)}
+
+				{/* Wallet View */}
+				{viewMode === "wallet" && (
+					<div className="max-w-3xl mx-auto space-y-6">
+						<WalletBalance
+							balance={balance}
+							isLoading={isLoadingBalance}
+							address={searchValue}
+						/>
+						<TransferList
+							transfers={transfers?.data || []}
+							isLoading={isLoadingTransfers}
+							walletAddress={searchValue}
+							pagination={transfers?.pagination}
+							onPageChange={handlePageChange}
+						/>
+					</div>
+				)}
+
+				{/* Transaction View */}
+				{viewMode === "transaction" && (
+					<div className="max-w-3xl mx-auto">
+						<TransactionDetails
+							transaction={transaction}
+							isLoading={isLoadingTransaction}
+							txHash={searchValue}
+						/>
+					</div>
+				)}
+
+				{/* Empty State */}
+				{viewMode === "idle" && (
+					<div className="max-w-3xl mx-auto">
+						<div className="flex flex-col items-center justify-center py-12 text-center">
+							<Search className="h-16 w-16 text-muted-foreground mb-4" />
+							<h3 className="text-lg font-semibold mb-2">Start Searching</h3>
+							<p className="text-sm text-muted-foreground max-w-md">
+								Enter an Ethereum address (40 hex characters) to view wallet
+								information, or a transaction hash (64 hex characters) to view
+								transaction details.
+							</p>
+						</div>
+					</div>
+				)}
+			</main>
+
+			{/* Footer */}
+			<footer className="border-t mt-12">
+				<div className="container mx-auto px-4 py-6">
+					<p className="text-sm text-muted-foreground text-center">
+						USDC Transaction Indexer Dashboard
+					</p>
+				</div>
+			</footer>
+		</div>
+	);
 }
