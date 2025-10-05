@@ -11,7 +11,8 @@ export abstract class ModelResponse {
   @ApiProperty({ example: 'Resource retrieved successfully' })
   message: string;
 
-  public data: any;
+  @ApiProperty({ description: 'Response data' })
+  data: any;
 
   constructor(data: any, message?: string) {
     this.success = true;
@@ -43,7 +44,8 @@ export abstract class ModelResponseList {
   })
   pagination: PaginationMetadata;
 
-  public data: any[];
+  @ApiProperty({ description: 'Response data array' })
+  data: any[];
 
   constructor(
     data: any[],

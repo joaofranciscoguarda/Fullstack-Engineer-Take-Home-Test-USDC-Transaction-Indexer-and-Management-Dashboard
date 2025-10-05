@@ -1,7 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { type ITransferResponse } from '@/common/models';
 import { ModelResponse, ModelResponseList } from './model.response';
-import { PaginationMetadata } from '@/common/types';
+import { type PaginationMetadata } from '@/common/types';
+
+export class PaginationMetadataClass {
+  @ApiProperty({ example: 1, description: 'Current page number' })
+  page_number: number;
+
+  @ApiProperty({ example: 10, description: 'Number of items per page' })
+  page_size: number;
+
+  @ApiProperty({ example: 10, description: 'Maximum page number' })
+  max_page_number: number;
+
+  @ApiProperty({ example: 100, description: 'Total number of items' })
+  total_items: number;
+}
 
 export class TransferResponseClass {
   @ApiProperty({ example: '1', description: 'Model identifier' })
@@ -90,13 +104,6 @@ export class TransferResponseClass {
 }
 
 export class TransferResponse extends ModelResponse {
-  @ApiProperty({
-    description: 'Transfer instance',
-    type: TransferResponseClass,
-    example: TransferResponseClass,
-  })
-  declare data: ITransferResponse;
-
   constructor(data: ITransferResponse, message?: string) {
     super(data, message);
   }
@@ -106,15 +113,42 @@ export class TransferResponse extends ModelResponse {
   }
 }
 
-export class TransferResponseList extends ModelResponseList {
-  @ApiProperty({
-    description: 'List of transfer instances',
-    type: TransferResponseClass,
-    example: TransferResponseClass,
-    isArray: true,
-  })
-  declare data: ITransferResponse[];
+// Swagger-specific response DTO
+export class TransferResponseDto {
+  @ApiProperty({ example: true, description: 'Success status' })
+  success: boolean;
 
+  @ApiProperty({ example: 'Transfer retrieved successfully.' })
+  message: string;
+
+  @ApiProperty({
+    description: 'Transfer instance',
+    type: TransferResponseClass,
+    example: {
+      id: '1',
+      tx_hash: '0x123...',
+      log_index: 0,
+      block_number: '12345678',
+      block_hash: '0xabc...',
+      timestamp: '2001-01-01T14:10:00.000Z',
+      from_address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+      to_address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+      amount: '1000000',
+      contract_address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+      chain_id: 1,
+      gas_price: '21000000000n',
+      gas_used: '21000n',
+      status: 1,
+      is_confirmed: true,
+      confirmations: 12,
+      created_at: '2001-01-01T14:10:00.000Z',
+      updated_at: '2001-01-01T14:10:00.000Z',
+    },
+  })
+  data: TransferResponseClass;
+}
+
+export class TransferResponseList extends ModelResponseList {
   constructor(
     data: ITransferResponse[],
     paginationMetadata: PaginationMetadata,
@@ -126,4 +160,53 @@ export class TransferResponseList extends ModelResponseList {
   protected getDefaultMessage(): string {
     return 'Transfers retrieved successfully.';
   }
+}
+
+// Swagger-specific response DTO for lists
+export class TransferResponseListDto {
+  @ApiProperty({ example: true, description: 'Success status' })
+  success: boolean;
+
+  @ApiProperty({ example: 'Transfers retrieved successfully.' })
+  message: string;
+
+  @ApiProperty({
+    description: 'List of transfer instances',
+    type: [TransferResponseClass],
+    example: [
+      {
+        id: '1',
+        tx_hash: '0x123...',
+        log_index: 0,
+        block_number: '12345678',
+        block_hash: '0xabc...',
+        timestamp: '2001-01-01T14:10:00.000Z',
+        from_address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+        to_address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+        amount: '1000000',
+        contract_address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        chain_id: 1,
+        gas_price: '21000000000n',
+        gas_used: '21000n',
+        status: 1,
+        is_confirmed: true,
+        confirmations: 12,
+        created_at: '2001-01-01T14:10:00.000Z',
+        updated_at: '2001-01-01T14:10:00.000Z',
+      },
+    ],
+  })
+  data: TransferResponseClass[];
+
+  @ApiProperty({
+    description: 'Pagination metadata',
+    type: PaginationMetadataClass,
+    example: {
+      page_number: 1,
+      page_size: 10,
+      max_page_number: 10,
+      total_items: 100,
+    },
+  })
+  pagination: PaginationMetadataClass;
 }

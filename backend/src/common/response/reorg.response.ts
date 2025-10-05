@@ -46,13 +46,6 @@ export class ReorgResponseClass {
 }
 
 export class ReorgResponse extends ModelResponse {
-  @ApiProperty({
-    description: 'Reorg instance',
-    type: ReorgResponseClass,
-    example: ReorgResponseClass,
-  })
-  declare data: IReorgResponse;
-
   constructor(data: IReorgResponse, message?: string) {
     super(data, message);
   }
@@ -62,15 +55,22 @@ export class ReorgResponse extends ModelResponse {
   }
 }
 
-export class ReorgResponseList extends ModelResponseList {
-  @ApiProperty({
-    description: 'List of reorg instances',
-    type: ReorgResponseClass,
-    example: ReorgResponseClass,
-    isArray: true,
-  })
-  declare data: IReorgResponse[];
+// Swagger-specific response DTO
+export class ReorgResponseDto {
+  @ApiProperty({ example: true, description: 'Success status' })
+  success: boolean;
 
+  @ApiProperty({ example: 'Reorg retrieved successfully.' })
+  message: string;
+
+  @ApiProperty({
+    description: 'Reorg instance',
+    type: ReorgResponseClass,
+  })
+  data: ReorgResponseClass;
+}
+
+export class ReorgResponseList extends ModelResponseList {
   constructor(
     data: IReorgResponse[],
     paginationMetadata: PaginationMetadata,
@@ -82,4 +82,35 @@ export class ReorgResponseList extends ModelResponseList {
   protected getDefaultMessage(): string {
     return 'Reorgs retrieved successfully.';
   }
+}
+
+// Swagger-specific response DTO for lists
+export class ReorgResponseListDto {
+  @ApiProperty({ example: true, description: 'Success status' })
+  success: boolean;
+
+  @ApiProperty({ example: 'Reorgs retrieved successfully.' })
+  message: string;
+
+  @ApiProperty({
+    description: 'List of reorg instances',
+    type: [ReorgResponseClass],
+  })
+  data: ReorgResponseClass[];
+
+  @ApiProperty({
+    description: 'Pagination metadata',
+    example: {
+      page_number: 1,
+      page_size: 10,
+      max_page_number: 10,
+      total_items: 100,
+    },
+  })
+  pagination: {
+    page_number: number;
+    page_size: number;
+    max_page_number: number;
+    total_items: number;
+  };
 }

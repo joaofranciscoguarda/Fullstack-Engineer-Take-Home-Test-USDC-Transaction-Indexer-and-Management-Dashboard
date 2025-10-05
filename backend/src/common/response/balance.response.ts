@@ -21,15 +21,35 @@ export class BalanceResponseClass {
   formatted: string;
 }
 
-export class BalanceResponse {
+export class BalanceResponse extends ModelResponse {
+  constructor(data: BalanceResponseClass, message?: string) {
+    super(data, message);
+  }
+
+  protected getDefaultMessage(): string {
+    return 'Balance retrieved successfully.';
+  }
+}
+
+// Swagger-specific response DTO
+export class BalanceResponseDto {
+  @ApiProperty({ example: true, description: 'Success status' })
+  success: boolean;
+
+  @ApiProperty({ example: 'Balance retrieved successfully.' })
+  message: string;
+
   @ApiProperty({
     description: 'Balance instance',
     type: BalanceResponseClass,
-    example: BalanceResponseClass,
+    example: {
+      address: '0x123...',
+      chainId: 1,
+      contractAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+      balance: '1000000n',
+      decimals: 6,
+      formatted: '1000000',
+    },
   })
-  declare data: BalanceResponseClass;
-
-  constructor(data: BalanceResponseClass) {
-    this.data = data;
-  }
+  data: BalanceResponseClass;
 }

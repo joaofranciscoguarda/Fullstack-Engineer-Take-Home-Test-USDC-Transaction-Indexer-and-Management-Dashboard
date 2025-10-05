@@ -14,7 +14,7 @@ export class AppController {
   apiToApiDocs() {}
 
   @Public()
-  @Get('/*a')
+  @Get('/*')
   @Redirect('/api/docs')
   anyToApiDocs() {}
 }

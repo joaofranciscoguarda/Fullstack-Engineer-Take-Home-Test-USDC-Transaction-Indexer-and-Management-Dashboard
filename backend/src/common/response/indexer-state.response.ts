@@ -19,7 +19,10 @@ export class IndexerStateResponseClass {
   @ApiProperty({ example: '12345678', description: 'Last processed block' })
   last_processed_block: string;
 
-  @ApiProperty({ example: '12345900', description: 'Highest processed block (for debugging)' })
+  @ApiProperty({
+    example: '12345900',
+    description: 'Highest processed block (for debugging)',
+  })
   highest_processed_block: string;
 
   @ApiProperty({ example: '12345900', description: 'Current blockchain block' })
@@ -72,13 +75,6 @@ export class IndexerStateResponseClass {
 }
 
 export class IndexerStateResponse extends ModelResponse {
-  @ApiProperty({
-    description: 'IndexerState instance',
-    type: IndexerStateResponseClass,
-    example: IndexerStateResponseClass,
-  })
-  declare data: IIndexerStateResponse;
-
   constructor(data: IIndexerStateResponse, message?: string) {
     super(data, message);
   }
@@ -88,15 +84,22 @@ export class IndexerStateResponse extends ModelResponse {
   }
 }
 
-export class IndexerStateResponseList extends ModelResponseList {
-  @ApiProperty({
-    description: 'List of indexer state instances',
-    type: IndexerStateResponseClass,
-    example: IndexerStateResponseClass,
-    isArray: true,
-  })
-  declare data: IIndexerStateResponse[];
+// Swagger-specific response DTO
+export class IndexerStateResponseDto {
+  @ApiProperty({ example: true, description: 'Success status' })
+  success: boolean;
 
+  @ApiProperty({ example: 'Indexer state retrieved successfully.' })
+  message: string;
+
+  @ApiProperty({
+    description: 'Indexer state instance',
+    type: IndexerStateResponseClass,
+  })
+  data: IndexerStateResponseClass;
+}
+
+export class IndexerStateResponseList extends ModelResponseList {
   constructor(
     data: IIndexerStateResponse[],
     paginationMetadata: PaginationMetadata,
@@ -108,4 +111,35 @@ export class IndexerStateResponseList extends ModelResponseList {
   protected getDefaultMessage(): string {
     return 'Indexer states retrieved successfully.';
   }
+}
+
+// Swagger-specific response DTO for lists
+export class IndexerStateResponseListDto {
+  @ApiProperty({ example: true, description: 'Success status' })
+  success: boolean;
+
+  @ApiProperty({ example: 'Indexer states retrieved successfully.' })
+  message: string;
+
+  @ApiProperty({
+    description: 'List of indexer state instances',
+    type: [IndexerStateResponseClass],
+  })
+  data: IndexerStateResponseClass[];
+
+  @ApiProperty({
+    description: 'Pagination metadata',
+    example: {
+      page_number: 1,
+      page_size: 10,
+      max_page_number: 10,
+      total_items: 100,
+    },
+  })
+  pagination: {
+    page_number: number;
+    page_size: number;
+    max_page_number: number;
+    total_items: number;
+  };
 }
